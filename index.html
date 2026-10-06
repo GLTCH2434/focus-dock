@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desk Dock</title>
+<!-- Makes the page fill a small screen properly -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1c">
+<!-- App install info: icons, manifest, and the iPhone/iPad "Add to Home Screen" settings -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dock">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Font is optional: if it fails to load, the system font is used instead -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400;600&display=swap" rel="stylesheet">
+
+<style>
+/* ---------- Colours and basics ----------
+   Change these few values to re-theme the whole dock. */
+:root{
+  --bg:#0a0f1c;            /* deep night blue background */
+  --ink:#eef0f8;           /* main text colour */
+  --dim:rgba(238,240,248,.55);
+  --glass:rgba(255,255,255,.07);
+  --edge:rgba(255,255,255,.16);
+  --b1:#6d5efc; --b2:#19c3b1; --b3:#ff6f91; --b4:#f5b94a; /* the four blob colours */
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:'Sora',system-ui,sans-serif}
+/* Cursor and buttons fade away when you stop touching the dock (see JS "idle") */
+body.idle{cursor:none}
+body.idle .bar{opacity:0;pointer-events:none}
+
+/* ---------- Blob background ----------
+   Four big blurred shapes that slowly drift AND change shape.
+   Two animations run at different speeds so the motion never visibly repeats. */
+.blobs{position:fixed;inset:0;overflow:hidden;z-index:0}
+.blob{position:absolute;width:46vmax;height:46vmax;filter:blur(42px);opacity:.55;
+  will-change:transform;
+  animation:drift 30s ease-in-out infinite alternate, morph 15s ease-in-out infinite}
+.blob:nth-child(1){background:var(--b1);top:-15%;left:-10%}
+.blob:nth-child(2){background:var(--b2);top:30%;right:-18%;animation-duration:36s,19s}
+.blob:nth-child(3){background:var(--b3);bottom:-25%;left:15%;animation-duration:27s,13s;opacity:.45}
+.blob:nth-child(4){background:var(--b4);top:5%;left:42%;width:26vmax;height:26vmax;
+  animation-duration:41s,17s;opacity:.35}
+@keyframes drift{
+  0%{transform:translate(0,0) rotate(0)}
+  50%{transform:translate(12vw,-8vh) rotate(90deg)}
+  100%{transform:translate(-8vw,10vh) rotate(200deg)}}
+@keyframes morph{ /* changing border-radius is what makes a square look like a blob */
+  0%,100%{border-radius:42% 58% 63% 37% / 45% 40% 60% 55%}
+  33%{border-radius:60% 40% 35% 65% / 55% 62% 38% 45%}
+  66%{border-radius:38% 62% 55% 45% / 62% 36% 64% 38%}}
+
+/* ---------- Layout ---------- */
+.dock{position:relative;z-index:1;height:100%;display:grid;
+  grid-template-columns:1.35fr 1fr;gap:clamp(12px,3vmin,32px);
+  padding:clamp(14px,4vmin,44px)}
+/* On tall/portrait screens, stack clock above notes */
+@media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+
+.clock{align-self:center;min-width:0}
+.time{font-size:clamp(56px,25vmin,280px);font-weight:200;letter-spacing:-.045em;
+  line-height:.95;font-variant-numeric:tabular-nums;cursor:pointer;user-select:none;
+  text-shadow:0 4px 40px rgba(10,15,28,.35)}
+.time small{font-size:.22em;letter-spacing:0;font-weight:300;color:var(--dim);margin-left:.25em}
+.date{margin-top:1.2vmin;font-size:clamp(14px,3.6vmin,34px);font-weight:300;color:var(--dim)}
+
+/* ---------- Glass panels (notes + noise player) ---------- */
+.glass{background:var(--glass);border:1px solid var(--edge);border-radius:clamp(18px,3.5vmin,32px);
+  -webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 20px 60px rgba(0,0,0,.25)}
+.notes{display:flex;flex-direction:column;min-height:0;padding:clamp(14px,2.8vmin,28px)}
+.notes h2{font-size:clamp(13px,2.4vmin,18px);font-weight:600;margin-bottom:1.2vmin}
+#list{list-style:none;padding:0;overflow:auto;flex:1;min-height:0}
+#list li{display:flex;gap:10px;align-items:flex-start;padding:.9vmin 0;
+  font-size:clamp(14px,2.7vmin,22px);font-weight:300;line-height:1.35;cursor:pointer}
+#list li span{flex:1;word-break:break-word}
+#list li.done span{text-decoration:line-through;opacity:.4}
+#list li button{opacity:.4}
+.notes input{margin-top:1.2vmin;width:100%;padding:.9em 1em;border-radius:14px;color:var(--ink);
+  background:rgba(255,255,255,.08);border:1px solid var(--edge);font:300 clamp(13px,2.4vmin,18px) inherit}
+.notes input::placeholder{color:var(--dim)}
+
+/* ---------- Buttons ---------- */
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--b2);outline-offset:2px}
+.bar{position:fixed;top:clamp(10px,2.5vmin,26px);right:clamp(10px,2.5vmin,26px);z-index:3;
+  display:flex;gap:8px;transition:opacity .6s}
+.bar button{width:clamp(40px,7vmin,56px);height:clamp(40px,7vmin,56px);display:grid;place-items:center;
+  border-radius:50%;background:var(--glass);border:1px solid var(--edge);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.bar button:hover{background:rgba(255,255,255,.14)}
+.bar svg{width:48%;height:48%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* When noise is playing, the noise button glows so you can tell at a glance */
+#noiseBtn.on{border-color:var(--b2);box-shadow:0 0 0 0 rgba(25,195,177,.6);animation:pulse 2.4s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 14px rgba(25,195,177,0)}100%{box-shadow:0 0 0 0 rgba(25,195,177,0)}}
+
+/* ---------- White noise panel ---------- */
+#noisePanel,#colorPanel{position:fixed;z-index:4;right:clamp(10px,2.5vmin,26px);
+  top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(360px,calc(100vw - 24px));
+  max-height:calc(100% - 90px);overflow:auto;padding:20px;display:none;flex-direction:column;gap:16px;
+  background:rgba(18,24,44,.55);animation:pop .22s ease-out}
+#noisePanel.open,#colorPanel.open{display:flex}
+@keyframes pop{from{opacity:0;transform:translateY(-8px) scale(.97)}}
+.row{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)}
+.row b{font-weight:400;display:flex;justify-content:space-between}
+.types{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.types button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:13px}
+.types button.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.play{padding:14px;border-radius:16px;font-weight:600;background:var(--b2);color:#04211e}
+.play.on{background:var(--b3);color:#2b0713}
+input[type=range]{width:100%;accent-color:var(--b2)}
+select{padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font:inherit}
+select option{color:#111}
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.swatches input{width:100%;height:48px;padding:0;border:1px solid var(--edge);border-radius:12px;background:none;cursor:pointer}
+.ghost{padding:10px;border-radius:12px;border:1px solid var(--edge);font-size:13px}
+.status{font-size:12px;color:var(--dim);min-height:1.2em}
+
+@media (prefers-reduced-motion:reduce){.blob,#noiseBtn.on{animation:none}}
+</style>
+</head>
+<body>
+
+<!-- The moving background -->
+<div class="blobs" aria-hidden="true"><div class="blob"></div><div class="blob"></div><div class="blob"></div><div class="blob"></div></div>
+
+<!-- Top-right buttons: white noise + fullscreen -->
+<nav class="bar">
+  <button id="noiseBtn" aria-label="White noise" title="White noise">
+    <svg viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4M21 12h0"/></svg>
+  </button>
+  <button id="colorBtn" aria-label="Blob colours" title="Blob colours">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10.5" r="1"/></svg>
+  </button>
+  <button id="fsBtn" aria-label="Fullscreen" title="Fullscreen">
+    <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+</nav>
+
+<main class="dock">
+  <section class="clock">
+    <!-- Click the time to switch between 12h and 24h -->
+    <div class="time" id="time" title="Click to switch 12h / 24h"><span id="hm">--:--</span><small id="sec"></small><small id="ampm"></small></div>
+    <div class="date" id="date"></div>
+  </section>
+
+  <section class="notes glass">
+    <h2>Notes</h2>
+    <ul id="list"></ul>
+    <input id="newNote" placeholder="Add a note and press Enter" maxlength="140" autocomplete="off">
+  </section>
+</main>
+
+<!-- White noise player (hidden until you press the noise button) -->
+<aside id="noisePanel" class="glass" aria-label="White noise player">
+  <div class="types" id="types">
+    <button data-t="white" class="sel">White</button>
+    <button data-t="pink">Pink</button>
+    <button data-t="brown">Brown</button>
+  </div>
+  <button class="play" id="playBtn">Play</button>
+  <label class="row"><b>Volume <span id="volVal">40%</span></b>
+    <input type="range" id="vol" min="0" max="100" value="40"></label>
+  <label class="row"><b>Softness <span id="toneVal"></span></b>
+    <!-- Further left = softer (cuts the harsh high sounds) -->
+    <input type="range" id="tone" min="0" max="100" value="100"></label>
+  <label class="row">Sleep timer
+    <select id="timer">
+      <option value="0">Off</option><option value="15">15 minutes</option>
+      <option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option>
+    </select></label>
+  <div class="status" id="status"></div>
+</aside>
+
+<!-- Blob colour settings (hidden until you press the palette button) -->
+<aside id="colorPanel" class="glass" aria-label="Blob colours">
+  <div class="row">Presets</div>
+  <div class="types" id="presets"></div>
+  <div class="row">Pick each blob colour</div>
+  <div class="swatches" id="swatches"></div>
+  <button class="ghost" id="resetColors">Reset to Aurora</button>
+</aside>
+
+<script>
+/* ============ Helpers ============ */
+const $ = id => document.getElementById(id);
+/* localStorage can fail (private mode etc.), so every use is wrapped safely */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ============ Clock + date ============ */
+let use24 = store.get('dock24', false);
+let endAt = null;                       // when the sleep timer should stop the noise (ms), or null
+
+function tick(){
+  const d = new Date();
+  let h = d.getHours();
+  let suffix = '';
+  if(use24){ h = String(h).padStart(2,'0'); }
+  else { suffix = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; }
+  $('hm').textContent = h + ':' + String(d.getMinutes()).padStart(2,'0');
+  $('sec').textContent = String(d.getSeconds()).padStart(2,'0');
+  $('ampm').textContent = suffix;
+  $('date').textContent = d.toLocaleDateString(undefined, {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+  /* sleep timer check, done once a second together with the clock */
+  if(endAt){
+    const left = endAt - Date.now();
+    if(left <= 0){ stopNoise(); endAt = null; $('timer').value = '0'; }
+    else $('status').textContent = 'Stops in ' + Math.ceil(left/60000) + ' min';
+  }
+}
+setInterval(tick, 1000); tick();
+$('time').onclick = () => { use24 = !use24; store.set('dock24', use24); tick(); };
+
+/* ============ Notes ============ */
+let notes = store.get('dockNotes', [{t:'Click a note to tick it off', done:false}]);
+function renderNotes(){
+  const ul = $('list'); ul.innerHTML = '';
+  notes.forEach((n, i) => {
+    const li = document.createElement('li');
+    if(n.done) li.className = 'done';
+    const span = document.createElement('span'); span.textContent = n.t;   // textContent = safe, no HTML injection
+    const x = document.createElement('button'); x.textContent = '✕'; x.setAttribute('aria-label','Delete note');
+    x.onclick = e => { e.stopPropagation(); notes.splice(i,1); saveNotes(); };
+    li.onclick = () => { n.done = !n.done; saveNotes(); };
+    li.append(span, x); ul.append(li);
+  });
+}
+function saveNotes(){ store.set('dockNotes', notes); renderNotes(); }
+$('newNote').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.value.trim()){ notes.push({t:e.target.value.trim(), done:false}); e.target.value=''; saveNotes(); }
+});
+renderNotes();
+
+/* ============ White noise (made live with the Web Audio API, no audio files needed) ============ */
+let ctx, gain, filter, src, type = 'white', playing = false;
+const buffers = {};                      // each noise type is generated once, then reused
+
+function makeBuffer(kind){
+  const len = ctx.sampleRate * 4;        // 4 seconds, looped forever
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for(let c = 0; c < 2; c++){
+    const out = buf.getChannelData(c);
+    let last = 0, b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for(let i = 0; i < len; i++){
+      const w = Math.random()*2 - 1;     // pure random = white noise
+      if(kind === 'white') out[i] = w * .6;
+      else if(kind === 'pink'){          // pink = white filtered so lows are stronger (Paul Kellet's method)
+        b0=.99886*b0+w*.0555179; b1=.99332*b1+w*.0750759; b2=.969*b2+w*.153852;
+        b3=.8665*b3+w*.3104856; b4=.55*b4+w*.5329522; b5=-.7616*b5-w*.016898;
+        out[i] = (b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11; b6 = w*.115926;
+      } else {                           // brown = even deeper, like a distant rumble
+        last = (last + .02*w) / 1.02; out[i] = last * 3.2;
+      }
+    }
+  }
+  return buf;
+}
+/* Turns the 0-100 "softness" slider into a cut-off frequency between 300 Hz and 16 kHz */
+const toneHz = v => 300 * Math.pow(16000/300, v/100);
+
+function startNoise(){
+  if(!ctx){                              // audio can only be created after a click, so we do it here
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    filter = ctx.createBiquadFilter(); filter.type = 'lowpass';
+    gain = ctx.createGain();
+    filter.connect(gain); gain.connect(ctx.destination);
+    updateTone(); setVol();
+  }
+  if(ctx.state === 'suspended') ctx.resume();
+  if(src){ src.stop(); src.disconnect(); }
+  if(!buffers[type]) buffers[type] = makeBuffer(type);
+  src = ctx.createBufferSource(); src.buffer = buffers[type]; src.loop = true;
+  src.connect(filter); src.start();
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  setVol(); playing = true; refreshUI();
+}
+function stopNoise(){
+  if(!playing) return;
+  const s = src;                         // fade out over 0.6s so it doesn't click
+  gain.gain.setTargetAtTime(0, ctx.currentTime, .15);
+  setTimeout(() => { try{ s.stop(); }catch(e){} }, 700);
+  src = null; playing = false; refreshUI();
+}
+function setVol(){ if(gain) gain.gain.setTargetAtTime(($('vol').value/100) ** 2, ctx.currentTime, .05); } // squared = feels smoother to the ear
+function updateTone(){ const hz = toneHz($('tone').value); $('toneVal').textContent = hz > 15000 ? 'full' : Math.round(hz) + ' Hz'; if(filter) filter.frequency.setTargetAtTime(hz, ctx.currentTime, .05); }
+function refreshUI(){
+  $('playBtn').textContent = playing ? 'Stop' : 'Play';
+  $('playBtn').classList.toggle('on', playing);
+  $('noiseBtn').classList.toggle('on', playing);
+  if(!endAt) $('status').textContent = playing ? 'Playing ' + type + ' noise' : '';
+}
+
+$('noiseBtn').onclick = () => { $('colorPanel').classList.remove('open'); $('noisePanel').classList.toggle('open'); };
+$('playBtn').onclick = () => playing ? stopNoise() : startNoise();
+$('types').onclick = e => {
+  const t = e.target.dataset.t; if(!t) return;
+  type = t;
+  document.querySelectorAll('#types button').forEach(b => b.classList.toggle('sel', b.dataset.t === t));
+  if(playing) startNoise(); else refreshUI();
+};
+$('vol').oninput = () => { $('volVal').textContent = $('vol').value + '%'; setVol(); store.set('dockVol', $('vol').value); };
+$('tone').oninput = () => { updateTone(); store.set('dockTone', $('tone').value); };
+$('timer').onchange = () => {
+  const m = +$('timer').value;
+  endAt = m ? Date.now() + m*60000 : null;
+  if(!m) refreshUI();
+};
+/* Remember volume / softness between visits */
+$('vol').value = store.get('dockVol', 40); $('volVal').textContent = $('vol').value + '%';
+$('tone').value = store.get('dockTone', 100); updateTone();
+
+/* ============ Blob colours ============
+   The four blobs read their colour from CSS variables --b1 to --b4,
+   so changing a colour just means updating those variables. */
+const PRESETS = {
+  Aurora: ['#6d5efc','#19c3b1','#ff6f91','#f5b94a'],
+  Sunset: ['#ff5e62','#ff9966','#f5b94a','#b84fd1'],
+  Ocean:  ['#1e6fff','#19c3b1','#5ee0ff','#6d5efc'],
+  Forest: ['#2fbf71','#a8e063','#19c3b1','#f5b94a'],
+  Mono:   ['#8a93b2','#c7cde0','#5a6385','#e9ecf5']
+};
+let colors = store.get('dockColors', PRESETS.Aurora);
+/* If the saved value looks wrong for any reason, fall back to the default */
+if(!Array.isArray(colors) || colors.length !== 4 || !colors.every(c => /^#[0-9a-f]{6}$/i.test(c))) colors = PRESETS.Aurora.slice();
+
+function applyColors(){
+  colors.forEach((c, i) => document.documentElement.style.setProperty('--b' + (i + 1), c));
+  document.querySelectorAll('#swatches input').forEach((inp, i) => inp.value = colors[i]);
+  store.set('dockColors', colors);
+}
+/* Build the 4 colour pickers */
+colors.forEach((c, i) => {
+  const inp = document.createElement('input');
+  inp.type = 'color'; inp.setAttribute('aria-label', 'Blob colour ' + (i + 1));
+  inp.oninput = () => { colors[i] = inp.value; applyColors(); };   // updates live while you drag
+  $('swatches').append(inp);
+});
+/* Build the preset buttons */
+Object.keys(PRESETS).forEach(name => {
+  const b = document.createElement('button'); b.textContent = name;
+  b.onclick = () => { colors = PRESETS[name].slice(); applyColors(); };
+  $('presets').append(b);
+});
+$('resetColors').onclick = () => { colors = PRESETS.Aurora.slice(); applyColors(); };
+/* Only one panel is open at a time: opening one closes the other */
+$('colorBtn').onclick = () => { $('noisePanel').classList.remove('open'); $('colorPanel').classList.toggle('open'); };
+applyColors();
+
+/* ============ Fullscreen (+ keep the screen awake) ============ */
+let wake = null;
+async function keepAwake(){ try{ if('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); }catch(e){} }
+document.addEventListener('visibilitychange', () => { if(!document.hidden && document.fullscreenElement) keepAwake(); });
+if(!document.documentElement.requestFullscreen) $('fsBtn').style.display = 'none';  // e.g. iPhone Safari has no fullscreen API
+$('fsBtn').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+document.addEventListener('fullscreenchange', () => {
+  if(document.fullscreenElement) keepAwake(); else if(wake){ wake.release(); wake = null; }
+});
+
+/* ============ Idle: hide buttons + cursor after 5s of no activity ============ */
+let idleTimer;
+function wakeUI(){
+  document.body.classList.remove('idle'); clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    const busy = $('noisePanel').classList.contains('open') || $('colorPanel').classList.contains('open') || document.activeElement === $('newNote');
+    if(!busy) document.body.classList.add('idle'); else wakeUI();
+  }, 5000);
+}
+['mousemove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wakeUI, {passive:true}));
+addEventListener('keydown', e => { if(e.key === 'Escape'){ $('noisePanel').classList.remove('open'); $('colorPanel').classList.remove('open'); } });
+wakeUI();
+
+/* ============ Make it installable (offline copy via the service worker) ============ */
+if('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
