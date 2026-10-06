@@ -2,7 +2,7 @@
    and keeps working with no internet (the font falls back to the system font). */
 
 // Bump this number whenever you change any file, so devices fetch the new version.
-const CACHE = 'desk-dock-v1';
+const CACHE = 'desk-dock-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg',
                './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 

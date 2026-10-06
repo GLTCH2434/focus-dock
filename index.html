@@ -100,15 +100,15 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .bar button:hover{background:rgba(255,255,255,.14)}
 .bar svg{width:48%;height:48%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 /* When noise is playing, the noise button glows so you can tell at a glance */
-#noiseBtn.on{border-color:var(--b2);box-shadow:0 0 0 0 rgba(25,195,177,.6);animation:pulse 2.4s infinite}
+#menuBtn.on{border-color:var(--b2);box-shadow:0 0 0 0 rgba(25,195,177,.6);animation:pulse 2.4s infinite}
 @keyframes pulse{70%{box-shadow:0 0 0 14px rgba(25,195,177,0)}100%{box-shadow:0 0 0 0 rgba(25,195,177,0)}}
 
 /* ---------- White noise panel ---------- */
-#noisePanel,#colorPanel{position:fixed;z-index:4;right:clamp(10px,2.5vmin,26px);
+#menuPanel{position:fixed;z-index:4;right:clamp(10px,2.5vmin,26px);
   top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(360px,calc(100vw - 24px));
   max-height:calc(100% - 90px);overflow:auto;padding:20px;display:none;flex-direction:column;gap:16px;
   background:rgba(18,24,44,.55);animation:pop .22s ease-out}
-#noisePanel.open,#colorPanel.open{display:flex}
+#menuPanel.open{display:flex}
 @keyframes pop{from{opacity:0;transform:translateY(-8px) scale(.97)}}
 .row{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)}
 .row b{font-weight:400;display:flex;justify-content:space-between}
@@ -125,7 +125,24 @@ select option{color:#111}
 .ghost{padding:10px;border-radius:12px;border:1px solid var(--edge);font-size:13px}
 .status{font-size:12px;color:var(--dim);min-height:1.2em}
 
-@media (prefers-reduced-motion:reduce){.blob,#noiseBtn.on{animation:none}}
+/* Tabs inside the menu + the panes they switch between */
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tabs button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:13px}
+.tabs button.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pane{display:flex;flex-direction:column;gap:16px}
+.pane[hidden]{display:none}   /* needed because .pane sets its own display */
+/* Focus timer */
+.big{font-size:56px;font-weight:200;text-align:center;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.frow{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+/* Small progress pill on the dock itself, so you can see the timer without opening the menu */
+.pill{display:inline-flex;margin-top:2.2vmin;padding:.7em 1.3em;border-radius:999px;
+  font-size:clamp(13px,2.6vmin,20px);font-weight:300;font-variant-numeric:tabular-nums;
+  border:1px solid var(--edge);color:var(--ink);
+  background:linear-gradient(90deg,rgba(255,255,255,.24) var(--p,0%),var(--glass) var(--p,0%));
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.pill[hidden]{display:none}
+.pill.ready{border-color:var(--b2);box-shadow:0 0 0 0 rgba(25,195,177,.6);animation:pulse 2.4s infinite}
+@media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
 <body>
@@ -135,14 +152,8 @@ select option{color:#111}
 
 <!-- Top-right buttons: white noise + fullscreen -->
 <nav class="bar">
-  <button id="noiseBtn" aria-label="White noise" title="White noise">
-    <svg viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4M21 12h0"/></svg>
-  </button>
-  <button id="colorBtn" aria-label="Blob colours" title="Blob colours">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10.5" r="1"/></svg>
-  </button>
-  <button id="fsBtn" aria-label="Fullscreen" title="Fullscreen">
-    <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  <button id="menuBtn" aria-label="Open menu" aria-expanded="false" title="Focus, noise, colours, fullscreen">
+    <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg>
   </button>
 </nav>
 
@@ -151,6 +162,8 @@ select option{color:#111}
     <!-- Click the time to switch between 12h and 24h -->
     <div class="time" id="time" title="Click to switch 12h / 24h"><span id="hm">--:--</span><small id="sec"></small><small id="ampm"></small></div>
     <div class="date" id="date"></div>
+    <!-- Shows while a focus session is running. Tap it to open the Focus tab. -->
+    <button class="pill" id="pill" hidden><span id="pillText"></span></button>
   </section>
 
   <section class="notes glass">
@@ -160,8 +173,23 @@ select option{color:#111}
   </section>
 </main>
 
-<!-- White noise player (hidden until you press the noise button) -->
-<aside id="noisePanel" class="glass" aria-label="White noise player">
+<!-- One menu for everything: tabs switch between Focus timer, White noise and Blob colours -->
+<aside id="menuPanel" class="glass" aria-label="Dock menu">
+  <div class="tabs" id="tabs">
+    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button>
+  </div>
+
+  <section class="pane" data-pane="focus">
+    <div class="types" id="fModes">
+      <button data-m="focus">Focus</button><button data-m="break">Break</button><button data-m="long">Long break</button>
+    </div>
+    <div class="big" id="fBig">25:00</div>
+    <div class="frow"><button class="play" id="fStart">Start</button><button class="ghost" id="fReset">Reset</button></div>
+    <label class="row"><b>Length <span id="fLenVal"></span></b><input type="range" id="fLen" min="1" max="90" value="25"></label>
+    <div class="status" id="fStatus"></div>
+  </section>
+
+  <section class="pane" data-pane="noise" hidden>
   <div class="types" id="types">
     <button data-t="white" class="sel">White</button>
     <button data-t="pink">Pink</button>
@@ -179,15 +207,17 @@ select option{color:#111}
       <option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option>
     </select></label>
   <div class="status" id="status"></div>
-</aside>
+</section>
 
-<!-- Blob colour settings (hidden until you press the palette button) -->
-<aside id="colorPanel" class="glass" aria-label="Blob colours">
+  <section class="pane" data-pane="colors" hidden>
   <div class="row">Presets</div>
   <div class="types" id="presets"></div>
   <div class="row">Pick each blob colour</div>
   <div class="swatches" id="swatches"></div>
   <button class="ghost" id="resetColors">Reset to Aurora</button>
+</section>
+
+  <button class="ghost" id="fsBtn">Enter fullscreen</button>
 </aside>
 
 <script>
@@ -220,8 +250,9 @@ function tick(){
     if(left <= 0){ stopNoise(); endAt = null; $('timer').value = '0'; }
     else $('status').textContent = 'Stops in ' + Math.ceil(left/60000) + ' min';
   }
+  focusTick();   // keeps the focus timer and its pill up to date
 }
-setInterval(tick, 1000); tick();
+setInterval(tick, 1000);
 $('time').onclick = () => { use24 = !use24; store.set('dock24', use24); tick(); };
 
 /* ============ Notes ============ */
@@ -299,11 +330,10 @@ function updateTone(){ const hz = toneHz($('tone').value); $('toneVal').textCont
 function refreshUI(){
   $('playBtn').textContent = playing ? 'Stop' : 'Play';
   $('playBtn').classList.toggle('on', playing);
-  $('noiseBtn').classList.toggle('on', playing);
+  $('menuBtn').classList.toggle('on', playing || fRunning);
   if(!endAt) $('status').textContent = playing ? 'Playing ' + type + ' noise' : '';
 }
 
-$('noiseBtn').onclick = () => { $('colorPanel').classList.remove('open'); $('noisePanel').classList.toggle('open'); };
 $('playBtn').onclick = () => playing ? stopNoise() : startNoise();
 $('types').onclick = e => {
   const t = e.target.dataset.t; if(!t) return;
@@ -355,9 +385,116 @@ Object.keys(PRESETS).forEach(name => {
   $('presets').append(b);
 });
 $('resetColors').onclick = () => { colors = PRESETS.Aurora.slice(); applyColors(); };
-/* Only one panel is open at a time: opening one closes the other */
-$('colorBtn').onclick = () => { $('noisePanel').classList.remove('open'); $('colorPanel').classList.toggle('open'); };
 applyColors();
+
+/* ============ Focus timer (Pomodoro style) ============
+   Works from real clock times instead of "count one per second", so it stays
+   accurate even if the browser slows this page down in the background. */
+const MODES = {focus:'Focus', break:'Break', long:'Long break'};
+const DEFAULT_MINS = {focus:25, break:5, long:15};
+let mins = store.get('dockFocusMins', DEFAULT_MINS);
+if(!mins || typeof mins !== 'object') mins = {...DEFAULT_MINS};
+for(const k in DEFAULT_MINS) if(!(mins[k] >= 1 && mins[k] <= 90)) mins[k] = DEFAULT_MINS[k];
+
+let fMode = 'focus';              // which kind of session is selected
+let fRunning = false;             // is the countdown going?
+let fReady = false;               // a session just ended and the next one is waiting to start
+let fEnd = 0;                     // clock time (ms) the running session ends at
+let fLeft = mins.focus * 60000;   // ms left while paused or not started
+let chimeCtx;                     // small audio context just for the end-of-session chime
+const day = () => new Date().toDateString();
+let done = store.get('dockFocusDone', null);
+if(!done || done.d !== day()) done = {d: day(), n: 0};   // the "sessions done" count resets each day
+
+const fmt = ms => { const t = Math.ceil(ms / 1000); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+
+function fRender(){
+  const total = mins[fMode] * 60000;
+  const left = fRunning ? Math.max(0, fEnd - Date.now()) : fLeft;
+  const started = fRunning || left < total;                  // running, or paused part-way
+  $('fBig').textContent = fmt(left);
+  $('fStart').textContent = fRunning ? 'Pause' : (left < total ? 'Resume' : 'Start');
+  $('fStart').classList.toggle('on', fRunning);
+  $('fLen').value = mins[fMode]; $('fLenVal').textContent = mins[fMode] + ' min';
+  $('fLen').disabled = started;                              // can't change length mid-session
+  document.querySelectorAll('#fModes button').forEach(b => b.classList.toggle('sel', b.dataset.m === fMode));
+  $('fStatus').textContent = done.n ? done.n + ' focus session' + (done.n > 1 ? 's' : '') + ' done today' : '';
+  /* the pill on the dock */
+  $('pill').hidden = !(started || fReady);
+  $('pill').classList.toggle('ready', fReady && !fRunning);
+  $('pill').style.setProperty('--p', (started ? 100 - left / total * 100 : 0) + '%');
+  $('pillText').textContent = fReady && !fRunning ? MODES[fMode] + ' ready, tap to start'
+                            : MODES[fMode] + ' ' + fmt(left) + (fRunning ? '' : ' (paused)');
+  document.title = fRunning ? fmt(left) + ' · ' + MODES[fMode] : 'Desk Dock';
+}
+
+/* Three short beeps when a session ends */
+function chime(){
+  if(!chimeCtx) return;
+  [0, .35, .7].forEach(t => {
+    const o = chimeCtx.createOscillator(), g = chimeCtx.createGain(), t0 = chimeCtx.currentTime + t;
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.25, t0 + .02); g.gain.exponentialRampToValueAtTime(.001, t0 + .3);
+    o.connect(g); g.connect(chimeCtx.destination); o.start(t0); o.stop(t0 + .32);
+  });
+}
+
+function finish(){
+  fRunning = false; chime();
+  if(fMode === 'focus'){                                      // after every 4th focus session: long break
+    done = {d: day(), n: done.n + 1}; store.set('dockFocusDone', done);
+    fMode = done.n % 4 === 0 ? 'long' : 'break';
+  } else fMode = 'focus';
+  fLeft = mins[fMode] * 60000; fReady = true;                 // next session waits for you to start it
+}
+
+/* Called once a second from tick() */
+function focusTick(){
+  if(fRunning && Date.now() >= fEnd) finish();
+  fRender();
+  $('menuBtn').classList.toggle('on', playing || fRunning);   // menu button glows if noise or timer is active
+}
+
+$('fStart').onclick = () => {
+  if(fRunning){ fLeft = Math.max(0, fEnd - Date.now()); fRunning = false; }          // pause
+  else {
+    chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();   // created on a click so the browser allows sound
+    if(chimeCtx.state === 'suspended') chimeCtx.resume();
+    fEnd = Date.now() + fLeft; fRunning = true; fReady = false;
+  }
+  fRender();
+};
+$('fReset').onclick = () => { fRunning = false; fReady = false; fLeft = mins[fMode] * 60000; fRender(); };
+$('fModes').onclick = e => {
+  const m = e.target.dataset.m; if(!m) return;
+  fMode = m; fRunning = false; fReady = false; fLeft = mins[m] * 60000; fRender();
+};
+$('fLen').oninput = () => { mins[fMode] = +$('fLen').value; fLeft = mins[fMode] * 60000; store.set('dockFocusMins', mins); fRender(); };
+/* Tapping the pill starts the next session if one is waiting, otherwise opens the Focus tab */
+$('pill').onclick = () => { if(fReady && !fRunning) $('fStart').onclick(); else openMenu('focus'); };
+fRender();
+
+/* ============ The one menu: open/close + tabs ============ */
+function showTab(t){
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('sel', b.dataset.tab === t));
+  document.querySelectorAll('.pane').forEach(p => p.hidden = p.dataset.pane !== t);
+  store.set('dockTab', t);
+}
+function openMenu(tab){
+  if(tab) showTab(tab);
+  $('menuPanel').classList.add('open'); $('menuBtn').setAttribute('aria-expanded', 'true');
+}
+function closeMenu(){
+  $('menuPanel').classList.remove('open'); $('menuBtn').setAttribute('aria-expanded', 'false');
+}
+$('menuBtn').onclick = () => $('menuPanel').classList.contains('open') ? closeMenu() : openMenu();
+$('tabs').onclick = e => { const t = e.target.dataset.tab; if(t) showTab(t); };
+/* Click anywhere outside the menu to close it */
+document.addEventListener('click', e => {
+  if(!e.target.closest('#menuPanel, #menuBtn, #pill')) closeMenu();
+});
+const savedTab = store.get('dockTab', 'focus');
+showTab(['focus', 'noise', 'colors'].includes(savedTab) ? savedTab : 'focus');
 
 /* ============ Fullscreen (+ keep the screen awake) ============ */
 let wake = null;
@@ -366,6 +503,7 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden && doc
 if(!document.documentElement.requestFullscreen) $('fsBtn').style.display = 'none';  // e.g. iPhone Safari has no fullscreen API
 $('fsBtn').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 document.addEventListener('fullscreenchange', () => {
+  $('fsBtn').textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen';
   if(document.fullscreenElement) keepAwake(); else if(wake){ wake.release(); wake = null; }
 });
 
@@ -374,13 +512,14 @@ let idleTimer;
 function wakeUI(){
   document.body.classList.remove('idle'); clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
-    const busy = $('noisePanel').classList.contains('open') || $('colorPanel').classList.contains('open') || document.activeElement === $('newNote');
+    const busy = $('menuPanel').classList.contains('open') || document.activeElement === $('newNote');
     if(!busy) document.body.classList.add('idle'); else wakeUI();
   }, 5000);
 }
 ['mousemove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wakeUI, {passive:true}));
-addEventListener('keydown', e => { if(e.key === 'Escape'){ $('noisePanel').classList.remove('open'); $('colorPanel').classList.remove('open'); } });
+addEventListener('keydown', e => { if(e.key === 'Escape') closeMenu(); });
 wakeUI();
+tick();   // first draw of the clock (done last so everything above is ready)
 
 /* ============ Make it installable (offline copy via the service worker) ============ */
 if('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
