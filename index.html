@@ -126,7 +126,7 @@ select option{color:#111}
 .status{font-size:12px;color:var(--dim);min-height:1.2em}
 
 /* Tabs inside the menu + the panes they switch between */
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .tabs button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:13px}
 .tabs button.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .pane{display:flex;flex-direction:column;gap:16px}
@@ -142,6 +142,15 @@ select option{color:#111}
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .pill[hidden]{display:none}
 .pill.ready{border-color:var(--b2);box-shadow:0 0 0 0 rgba(25,195,177,.6);animation:pulse 2.4s infinite}
+/* Today's events, shown under the clock */
+.agenda{list-style:none;padding:0;margin-top:2.6vmin;display:flex;flex-direction:column;gap:.9vmin}
+.agenda li{display:flex;gap:.7em;align-items:baseline;font-size:clamp(13px,2.6vmin,20px);font-weight:300;color:var(--dim);white-space:nowrap}
+.agenda li b{font-weight:400;font-variant-numeric:tabular-nums;min-width:5.4em}
+.agenda li span{overflow:hidden;text-overflow:ellipsis}
+.agenda li.now,.agenda li.next{color:var(--ink)}
+.agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.agenda i{width:.6em;height:.6em;border-radius:50%;flex:none;align-self:center;background:var(--c,#fff)}
+@media (max-aspect-ratio:1/1){.agenda li:nth-child(n+4){display:none}}  /* fewer lines on tall screens */
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -164,6 +173,7 @@ select option{color:#111}
     <div class="date" id="date"></div>
     <!-- Shows while a focus session is running. Tap it to open the Focus tab. -->
     <button class="pill" id="pill" hidden><span id="pillText"></span></button>
+    <ul class="agenda" id="agenda"></ul>
   </section>
 
   <section class="notes glass">
@@ -176,7 +186,7 @@ select option{color:#111}
 <!-- One menu for everything: tabs switch between Focus timer, White noise and Blob colours -->
 <aside id="menuPanel" class="glass" aria-label="Dock menu">
   <div class="tabs" id="tabs">
-    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button>
+    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button>
   </div>
 
   <section class="pane" data-pane="focus">
@@ -216,6 +226,12 @@ select option{color:#111}
   <div class="swatches" id="swatches"></div>
   <button class="ghost" id="resetColors">Reset to Aurora</button>
 </section>
+
+  <section class="pane" data-pane="cal" hidden>
+    <div class="row">Shows today's and tomorrow's events from your Google Calendar on the dock. Read-only: the dock can never change your events.</div>
+    <button class="play" id="calBtn">Connect Google Calendar</button>
+    <div class="status" id="calStatus"></div>
+  </section>
 
   <button class="ghost" id="fsBtn">Enter fullscreen</button>
 </aside>
@@ -494,7 +510,141 @@ document.addEventListener('click', e => {
   if(!e.target.closest('#menuPanel, #menuBtn, #pill')) closeMenu();
 });
 const savedTab = store.get('dockTab', 'focus');
-showTab(['focus', 'noise', 'colors'].includes(savedTab) ? savedTab : 'focus');
+showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'focus');
+
+/* ============ Google Calendar (read-only) ============
+   Uses Google's sign-in popup, then asks the Calendar API for today's and tomorrow's
+   events. Everything happens in your browser: there is no server, and your calendar
+   data is never stored, only shown. */
+const GCAL_CLIENT_ID = '1234567890-abc123.apps.googleusercontent.com';          // your Google OAuth client ID (see setup steps)
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const gcalReady = !GCAL_CLIENT_ID.includes('PASTE_');   // false until you paste a real ID
+
+let gTok = null;        // access token (Google gives one that lasts about an hour)
+let gExp = 0;           // when that token runs out (ms)
+let gClient = null;     // Google's token helper
+let gEvents = [];       // events from the last refresh
+let gState = 'off';     // 'off' | 'ok' | 'reconnect' (needs a tap) | 'error'
+let gNext = 0;          // when to refresh next (ms)
+let gTry = 0;           // when we last tried to reconnect by ourselves (ms)
+let gUpdated = null;    // time of last good refresh
+let gWasOn = store.get('dockGcal', false);   // did you connect before?
+
+const tm = d => d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', hour12: !use24});
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+
+/* Load Google's sign-in script only when it's needed */
+function loadGsi(cb){
+  if(window.google && google.accounts) return cb();
+  const sc = document.createElement('script');
+  sc.src = 'https://accounts.google.com/gsi/client'; sc.onload = cb;
+  sc.onerror = () => { gState = 'error'; calUI(); };
+  document.head.append(sc);
+}
+/* Ask Google for a token. First time you'll see the sign-in popup; later it's usually silent. */
+function calConnect(){
+  if(!gcalReady){ calUI(); return; }
+  loadGsi(() => {
+    if(!gClient) gClient = google.accounts.oauth2.initTokenClient({
+      client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE,
+      callback: r => {
+        if(!r || !r.access_token){ gState = 'reconnect'; return calUI(); }
+        gTok = r.access_token; gExp = Date.now() + (r.expires_in - 120) * 1000;
+        gWasOn = true; store.set('dockGcal', true); gState = 'ok'; refreshCal();
+      },
+      error_callback: () => { gState = 'reconnect'; calUI(); }   // popup blocked or closed
+    });
+    gClient.requestAccessToken({prompt: ''});
+  });
+}
+function calDisconnect(){
+  if(gTok && window.google) google.accounts.oauth2.revoke(gTok, () => {});
+  gTok = null; gEvents = []; gState = 'off'; gWasOn = false; store.set('dockGcal', false); calUI();
+}
+
+/* Small helper: call the Calendar API with our token */
+async function gGet(url){
+  const r = await fetch(url, {headers: {Authorization: 'Bearer ' + gTok}});
+  if(r.status === 401){ gTok = null; throw new Error('expired'); }
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function refreshCal(){
+  if(!gTok || Date.now() > gExp){                 // token missing or run out
+    gState = 'reconnect'; calUI();
+    if(Date.now() - gTry > 5 * 60000){ gTry = Date.now(); calConnect(); }   // quietly retry, at most every 5 min
+    return;
+  }
+  try{
+    /* the calendars you have ticked in Google Calendar (up to 8) */
+    const cals = (await gGet('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50'))
+      .items.filter(c => c.selected).slice(0, 8);
+    const from = new Date(); from.setHours(0, 0, 0, 0);
+    const to = new Date(from); to.setDate(to.getDate() + 2);          // start of today to end of tomorrow
+    const q = 'singleEvents=true&orderBy=startTime&maxResults=25&timeMin=' + encodeURIComponent(from.toISOString())
+            + '&timeMax=' + encodeURIComponent(to.toISOString());
+    const lists = await Promise.all(cals.map(c =>
+      gGet('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id) + '/events?' + q)
+        .then(j => (j.items || [])
+          .filter(e => e.status !== 'cancelled' && !(e.attendees || []).some(a => a.self && a.responseStatus === 'declined'))
+          .map(e => ({
+            title: e.summary || '(no title)',
+            allDay: !!e.start.date,
+            start: new Date(e.start.dateTime || e.start.date + 'T00:00:00'),   // date-only = all-day, local midnight
+            end: new Date(e.end.dateTime || e.end.date + 'T00:00:00'),
+            color: c.backgroundColor
+          })))
+        .catch(() => [])));                                              // one broken calendar doesn't break the rest
+    gEvents = lists.flat().sort((a, b) => a.start - b.start);
+    gState = 'ok'; gUpdated = new Date(); gNext = Date.now() + 5 * 60000;
+  }catch(err){
+    gState = err.message === 'expired' ? 'reconnect' : 'error'; gNext = Date.now() + 60000;
+  }
+  calUI();
+}
+
+/* Draw the event list under the clock */
+function renderAgenda(){
+  const ul = $('agenda'); ul.innerHTML = '';
+  const add = (label, text, cls, color) => {
+    const li = document.createElement('li'); if(cls) li.className = cls;
+    const b = document.createElement('b'); b.textContent = label;
+    const sp = document.createElement('span'); sp.textContent = text;      // textContent: event titles can't inject HTML
+    if(color){ const i = document.createElement('i'); i.style.setProperty('--c', color); li.append(i); }
+    li.append(b, sp); ul.append(li); return li;
+  };
+  if(gState === 'reconnect'){ add('', 'Google Calendar: tap to reconnect', 'link').onclick = calConnect; return; }
+  if(gState === 'error'){ add('', "Calendar couldn't update, retrying", ''); return; }
+  if(gState !== 'ok') return;
+  const now = new Date(), today = new Date();
+  const upcoming = gEvents.filter(e => e.end > now).slice(0, 4);
+  if(!upcoming.length){ add('', 'Nothing else coming up', ''); return; }
+  let firstNext = false;
+  upcoming.forEach(e => {
+    const isNow = e.start <= now;
+    const cls = isNow ? 'now' : (!firstNext ? 'next' : ''); if(!isNow) firstNext = true;
+    const day = sameDay(e.start, today) ? '' : 'Tmrw ';
+    add(e.allDay ? day + 'All day' : day + tm(e.start), e.title, cls, e.color);
+  });
+}
+
+/* Keep the Calendar tab in the menu in step with what's happening */
+function calUI(){
+  const btn = $('calBtn'), st = $('calStatus');
+  btn.textContent = gState === 'ok' ? 'Disconnect' : (gState === 'reconnect' || gWasOn ? 'Reconnect' : 'Connect Google Calendar');
+  st.textContent = !gcalReady ? 'Setup needed: paste your Google client ID into index.html first.'
+    : gState === 'ok' ? 'Connected. Updated ' + tm(gUpdated)
+    : gState === 'reconnect' ? 'Needs one tap to reconnect (Google sign-ins last about an hour).'
+    : gState === 'error' ? "Couldn't reach Google Calendar, retrying." : '';
+  renderAgenda();
+}
+$('calBtn').onclick = () => gState === 'ok' ? calDisconnect() : calConnect();
+/* Every 30 seconds: redraw (so "now" and "next" stay right) and refresh data when it's due */
+setInterval(() => { renderAgenda(); if(gWasOn && gcalReady && Date.now() >= gNext) refreshCal(); }, 30000);
+/* If you connected before, try to reconnect when the page opens */
+if(gWasOn && gcalReady){ gState = 'reconnect'; gTry = Date.now(); calConnect(); }
+calUI();
 
 /* ============ Fullscreen (+ keep the screen awake) ============ */
 let wake = null;

@@ -2,7 +2,7 @@
    and keeps working with no internet (the font falls back to the system font). */
 
 // Bump this number whenever you change any file, so devices fetch the new version.
-const CACHE = 'desk-dock-v2';
+const CACHE = 'desk-dock-v3';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg',
                './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
@@ -23,6 +23,10 @@ self.addEventListener('activate', e => {
 // and if the network is down, use the saved copy instead.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Only handle our own files and the fonts. Google sign-in and Calendar requests are left alone,
+  // so private calendar data is never saved in the cache.
+  const host = new URL(e.request.url).hostname;
+  if (![self.location.hostname, 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(host)) return;
   e.respondWith(
     fetch(e.request).then(res => {
       const copy = res.clone();
