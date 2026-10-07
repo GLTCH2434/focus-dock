@@ -61,10 +61,10 @@ body.idle .bar{opacity:0;pointer-events:none}
 
 /* ---------- Layout ---------- */
 .dock{position:relative;z-index:1;height:100%;display:grid;
-  grid-template-columns:1.35fr 1fr;gap:clamp(12px,3vmin,32px);
+  grid-template-columns:1.35fr 1fr;grid-template-rows:minmax(0,1fr) auto;gap:clamp(12px,3vmin,32px);
   padding:clamp(14px,4vmin,44px)}
 /* On tall/portrait screens, stack clock above notes */
-@media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto 1fr;padding-top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px))}}
+@media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto;padding-top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px))}}
 
 .clock{align-self:center;min-width:0}
 .time{font-size:clamp(56px,25vmin,280px);font-weight:200;letter-spacing:-.045em;
@@ -86,7 +86,7 @@ body.idle .bar{opacity:0;pointer-events:none}
 #list li.done span{text-decoration:line-through;opacity:.4}
 #list li button{opacity:.4}
 .notes input{margin-top:1.2vmin;width:100%;padding:.9em 1em;border-radius:14px;color:var(--ink);
-  background:rgba(255,255,255,.08);border:1px solid var(--edge);font:300 clamp(13px,2.4vmin,18px) inherit}
+  background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-weight:300;font-size:clamp(13px,2.4vmin,18px)}
 .notes input::placeholder{color:var(--dim)}
 
 /* ---------- Buttons ---------- */
@@ -105,7 +105,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 
 /* ---------- White noise panel ---------- */
 #menuPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
-  top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(360px,calc(100vw - 24px));
+  top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(380px,calc(100vw - 24px));
   max-height:calc(100% - 90px);overflow:auto;padding:20px;display:none;flex-direction:column;gap:16px;
   background:rgba(18,24,44,.55);animation:pop .22s ease-out}
 #menuPanel.open{display:flex}
@@ -126,8 +126,8 @@ select option{color:#111}
 .status{font-size:12px;color:var(--dim);min-height:1.2em}
 
 /* Tabs inside the menu + the panes they switch between */
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.tabs button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:13px}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tabs button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:12px}
 .tabs button.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .pane{display:flex;flex-direction:column;gap:16px}
 .pane[hidden]{display:none}   /* needed because .pane sets its own display */
@@ -169,6 +169,26 @@ select option{color:#111}
 .calgrid .d.out{color:var(--dim);opacity:.45}
 .calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
 .status.bad{color:#ff8fab}
+/* Quick links strip along the bottom */
+.links{grid-column:1/-1;display:flex;gap:clamp(8px,1.8vmin,16px);overflow-x:auto;padding:4px 2px;scrollbar-width:none}
+.links::-webkit-scrollbar{display:none}
+.tile{flex:none;display:flex;align-items:center;gap:.7em;max-width:15em;padding:.55em 1.1em .55em .65em;
+  border-radius:999px;font-size:clamp(12px,2.3vmin,17px);font-weight:300;color:var(--ink);text-decoration:none;
+  background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.tile:hover{background:rgba(255,255,255,.15)}
+.tile.drag{opacity:.35}
+.tile img,.tile .ph{width:1.8em;height:1.8em;border-radius:50%;flex:none;background:rgba(255,255,255,.92);object-fit:contain;padding:.25em}
+.tile .ph{display:grid;place-items:center;padding:0;font-weight:600;font-size:.85em;color:#10162a}
+.tile span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.addtile{opacity:.7;transition:opacity .6s}
+body.idle .addtile{opacity:0;pointer-events:none}      /* the + tile fades away with the other controls */
+/* Links tab in the menu */
+.pane input[type=text]{padding:.8em 1em;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);
+  border:1px solid var(--edge);font-family:inherit;font-weight:300;font-size:14px}
+.lnklist{list-style:none;padding:0;display:flex;flex-direction:column;gap:6px;max-height:28vh;overflow:auto}
+.lnklist li{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:300}
+.lnklist li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lnklist button{opacity:.5;padding:4px 8px}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -209,12 +229,14 @@ select option{color:#111}
     <input id="newNote" placeholder="Add a note and press Enter" maxlength="140" autocomplete="off">
   </section>
   </div>
+  <!-- Quick links (filled in by the script) -->
+  <nav class="links" id="links" aria-label="Quick links"></nav>
 </main>
 
 <!-- One menu for everything: tabs switch between Focus timer, White noise and Blob colours -->
 <aside id="menuPanel" class="glass" aria-label="Dock menu">
   <div class="tabs" id="tabs">
-    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button>
+    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button><button data-tab="links">Links</button>
   </div>
 
   <section class="pane" data-pane="focus">
@@ -260,6 +282,15 @@ select option{color:#111}
     <button class="play" id="calBtn">Connect Google Calendar</button>
     <div class="status" id="calStatus"></div>
     <div class="status" id="calInfo"></div>
+  </section>
+
+  <section class="pane" data-pane="links" hidden>
+    <div class="row">Quick links appear along the bottom of the dock. Drag them there to reorder.</div>
+    <input type="text" id="lnkUrl" placeholder="Website, e.g. github.com" autocomplete="off">
+    <input type="text" id="lnkName" placeholder="Name (optional)" maxlength="40" autocomplete="off">
+    <button class="play" id="lnkAdd">Add link</button>
+    <ul class="lnklist" id="lnkList"></ul>
+    <div class="status" id="lnkStatus"></div>
   </section>
 
   <div class="status">Fullscreen: double-click empty space, or press F</div>
@@ -541,7 +572,7 @@ document.addEventListener('click', e => {
   if(!e.target.closest('#menuPanel, #menuBtn, #pill')) closeMenu();
 });
 const savedTab = store.get('dockTab', 'focus');
-showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'focus');
+showTab(['focus', 'noise', 'colors', 'cal', 'links'].includes(savedTab) ? savedTab : 'focus');
 
 /* ============ Google Calendar (read-only) ============
    Uses Google's sign-in popup, then asks the Calendar API for today's and tomorrow's
@@ -741,6 +772,72 @@ function renderMonth(){
 $('calPrev').onclick = () => { calView = new Date(calView.getFullYear(), calView.getMonth() - 1, 1); renderMonth(); };
 $('calNext').onclick = () => { calView = new Date(calView.getFullYear(), calView.getMonth() + 1, 1); renderMonth(); };
 $('calTitle').onclick = () => { calView = new Date(); calView.setDate(1); renderMonth(); };
+
+/* ============ Quick links (like Brave favorites) ============
+   Saved in this browser only. Each link is {n: name, u: address}. */
+let links = store.get('dockLinks', []);
+if(!Array.isArray(links)) links = [];
+links = links.filter(l => l && typeof l.u === 'string' && typeof l.n === 'string');   // drop anything malformed
+let dragFrom = null;             // position of the tile being dragged
+
+/* Turns what you typed into a web address. "github.com" becomes "https://github.com/".
+   Only http and https are allowed, so things like javascript: links are rejected. */
+function cleanUrl(raw){
+  raw = raw.trim(); if(!raw) return null;
+  if(!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
+  try{ const u = new URL(raw); return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : null; }catch(e){ return null; }
+}
+const hostOf = u => { try{ return new URL(u).hostname.replace(/^www\./, ''); }catch(e){ return u; } };
+function saveLinks(){ store.set('dockLinks', links); renderLinks(); }
+
+function renderLinks(){
+  const bar = $('links'); bar.innerHTML = '';
+  links.forEach((l, i) => {
+    const name = l.n || hostOf(l.u);
+    const a = document.createElement('a');
+    a.className = 'tile'; a.href = l.u; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = l.u; a.draggable = true;
+    /* icon: the site's favicon (fetched through Google's favicon service); a letter if it can't load */
+    const img = new Image(); img.alt = '';
+    img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(hostOf(l.u));
+    img.onerror = () => { const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = (name[0] || '?').toUpperCase(); img.replaceWith(ph); };
+    const sp = document.createElement('span'); sp.textContent = name;      // textContent: names can't inject HTML
+    a.append(img, sp);
+    /* drag one tile onto another to move it there */
+    a.ondragstart = e => { dragFrom = i; a.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; };
+    a.ondragend = () => a.classList.remove('drag');
+    a.ondragover = e => e.preventDefault();
+    a.ondrop = e => {
+      e.preventDefault();
+      if(dragFrom === null || dragFrom === i) return;
+      const [moved] = links.splice(dragFrom, 1); links.splice(i, 0, moved); dragFrom = null; saveLinks();
+    };
+    bar.append(a);
+  });
+  const add = document.createElement('button');                           // the "+" tile opens the Links tab
+  add.className = 'tile addtile'; add.textContent = links.length ? '+' : '+ Add a quick link';
+  add.onclick = () => openMenu('links'); bar.append(add);
+
+  /* the list inside the menu (with a delete button for each) */
+  const ul = $('lnkList'); ul.innerHTML = '';
+  links.forEach((l, i) => {
+    const li = document.createElement('li');
+    const sp = document.createElement('span'); sp.textContent = l.n || hostOf(l.u);
+    const x = document.createElement('button'); x.textContent = '✕'; x.setAttribute('aria-label', 'Remove link');
+    x.onclick = () => { links.splice(i, 1); saveLinks(); };
+    li.append(sp, x); ul.append(li);
+  });
+}
+function addLink(){
+  const u = cleanUrl($('lnkUrl').value);
+  if(!u){ $('lnkStatus').textContent = "That doesn't look like a web address."; return; }
+  if(links.length >= 24){ $('lnkStatus').textContent = 'That is the maximum of 24 links.'; return; }
+  links.push({n: $('lnkName').value.trim().slice(0, 40), u});
+  $('lnkUrl').value = ''; $('lnkName').value = ''; $('lnkStatus').textContent = '';
+  saveLinks();
+}
+$('lnkAdd').onclick = addLink;
+[$('lnkUrl'), $('lnkName')].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') addLink(); }));
+renderLinks();
 
 /* ============ Fullscreen (+ keep the screen awake) ============ */
 let wake = null;
