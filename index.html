@@ -168,6 +168,7 @@ select option{color:#111}
 .calgrid .d{justify-self:center;display:grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%}
 .calgrid .d.out{color:var(--dim);opacity:.45}
 .calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
+.status.bad{color:#ff8fab}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -258,6 +259,7 @@ select option{color:#111}
     <div class="row">Shows today's and tomorrow's events from your Google Calendar on the dock. Read-only: the dock can never change your events.</div>
     <button class="play" id="calBtn">Connect Google Calendar</button>
     <div class="status" id="calStatus"></div>
+    <div class="status" id="calInfo"></div>
   </section>
 
   <div class="status">Fullscreen: double-click empty space, or press F</div>
@@ -559,6 +561,9 @@ let gTry = 0;           // when we last tried to reconnect by ourselves (ms)
 let gUpdated = null;    // time of last good refresh
 let gWasOn = store.get('dockGcal', false);   // did you connect before?
 let gErr = '';          // last error text, shown in the Calendar tab so we can see what went wrong
+let gMsg = '';          // temporary message such as 'Opening Google sign-in...'
+let gTimer = null;      // fires if Google never answers, so you get a hint instead of silence
+function gDone(){ clearTimeout(gTimer); gMsg = ''; }   // call when Google has answered (success or failure)
 
 const tm = d => d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', hour12: !use24});
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
@@ -572,7 +577,7 @@ function loadGsi(cb){
   const sc = document.createElement('script');
   sc.src = 'https://accounts.google.com/gsi/client';
   sc.onload = () => { const q = gsiQueue; gsiQueue = null; q.forEach(f => f()); };
-  sc.onerror = () => { gsiQueue = null; gErr = "can't load Google's sign-in script (offline or blocked?)"; gState = 'error'; calUI(); };
+  sc.onerror = () => { gDone(); gsiQueue = null; gErr = "can't load Google's sign-in script (offline or blocked?)"; gState = 'error'; calUI(); };
   document.head.append(sc);
 }
 /* Set up Google's token helper (only once) */
@@ -581,17 +586,23 @@ function initGcalClient(){
   gClient = google.accounts.oauth2.initTokenClient({
     client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE,
     callback: r => {
+      gDone();
       if(!r || r.error || !r.access_token){ gErr = (r && r.error) || 'no token returned'; gState = 'reconnect'; return calUI(); }
       gTok = r.access_token; gExp = Date.now() + (r.expires_in - 120) * 1000;
       gErr = ''; gWasOn = true; store.set('dockGcal', true); gState = 'ok'; refreshCal();
     },
-    error_callback: err => { gErr = (err && err.type) || 'unknown'; gState = 'reconnect'; calUI(); }   // popup blocked or closed
+    error_callback: err => { gDone(); gErr = (err && err.type) || 'unknown'; gState = 'reconnect'; calUI(); }   // popup blocked or closed
   });
 }
 /* Ask Google for a token. Must run inside a tap/click, or the browser blocks the popup. */
 function calConnect(){
-  if(!gcalReady){ calUI(); return; }
-  gErr = '';
+  if(!gcalReady){ calUI(); return; }          // calUI explains what is missing
+  gErr = ''; gMsg = 'Opening Google sign-in...'; calUI();
+  clearTimeout(gTimer);
+  gTimer = setTimeout(() => {
+    gMsg = 'No sign-in window appeared. Allow popups for this site (look for the blocked-popup icon in the address bar), press F to leave fullscreen, then try again.';
+    calUI();
+  }, 6000);
   loadGsi(() => {
     initGcalClient();
     const hint = store.get('dockGcalHint', '');          // your email: lets Google skip the "choose account" step
@@ -680,7 +691,13 @@ function calUI(){
     : gState === 'ok' ? 'Connected. Updated ' + tm(gUpdated)
     : gState === 'reconnect' ? 'Needs one tap to reconnect (Google sign-ins last about an hour).'
     : gState === 'error' ? "Couldn't reach Google Calendar, retrying." : '';
+  const bad = !gcalReady || gState === 'error' || (!!gErr && gErr !== 'popup_failed_to_open' && gState !== 'ok');
   if(gErr && gErr !== 'popup_failed_to_open' && gState !== 'ok') st.textContent += ' Error: ' + gErr;
+  if(gMsg) st.textContent = gMsg;
+  st.classList.toggle('bad', bad || (!!gMsg && gMsg.startsWith('No sign-in')));
+  /* what this page looks like to Google: the origin must exactly match an Authorized JavaScript origin */
+  $('calInfo').textContent = 'This page: ' + location.origin + (window.isSecureContext ? '' : ' (NOT a secure https page)')
+    + ' · client ID ' + (gcalReady ? 'found' : 'missing');
   renderAgenda();
 }
 $('calBtn').onclick = () => gState === 'ok' ? calDisconnect() : calConnect();
@@ -763,8 +780,12 @@ addEventListener('keydown', e => { if(e.key === 'Escape') closeMenu(); });
 wakeUI();
 tick();   // first draw of the clock (done last so everything above is ready)
 
-/* ============ Make it installable (offline copy via the service worker) ============ */
-if('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+/* ============ No offline cache ============
+   Earlier versions saved a copy of the dock on the device. This tidies that up:
+   it removes any old service worker and deletes any saved copies, so the page
+   always loads fresh from the internet. (You can delete this block in a few weeks.) */
+if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+if(window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {});
 </script>
 </body>
 </html>
