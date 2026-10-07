@@ -6,5 +6,5 @@
    It is NOT a secret (every site that offers Google sign-in shows it publicly),
    so it is fine to commit this file to a public GitHub repo. */
 window.DOCK_CONFIG = {
-  googleClientId: 'PASTE_CLIENT_ID_HERE'
+  googleClientId: '859904949611-hfevlsbfuko5ghnp93jpjt7g6kvdut7c.apps.googleusercontent.com'
 };
