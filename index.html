@@ -142,7 +142,7 @@ select option{color:#111}
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .pill[hidden]{display:none}
 .pill.ready{border-color:var(--b2);box-shadow:0 0 0 0 rgba(25,195,177,.6);animation:pulse 2.4s infinite}
-/* Today's events, shown under the clock */
+/* Today's and tomorrow's events + tasks, shown under the clock */
 .agenda{list-style:none;padding:0;margin-top:2.6vmin;display:flex;flex-direction:column;gap:.9vmin}
 .agenda li{display:flex;gap:.7em;align-items:baseline;font-size:clamp(13px,2.6vmin,20px);font-weight:300;color:var(--dim);white-space:nowrap}
 .agenda li b{font-weight:400;font-variant-numeric:tabular-nums;min-width:5.4em}
@@ -150,7 +150,6 @@ select option{color:#111}
 .agenda li.now,.agenda li.next{color:var(--ink)}
 .agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .agenda i{width:.6em;height:.6em;border-radius:50%;flex:none;align-self:center;background:var(--c,#fff)}
-@media (max-aspect-ratio:1/1){.agenda li:nth-child(n+4){display:none}}  /* fewer lines on tall screens */
 /* Right column: two equal halves, calendar on top, notes below */
 .side{display:flex;flex-direction:column;gap:clamp(12px,3vmin,32px);min-height:0;min-width:0}
 .side>section{flex:1 1 0;min-height:0}
@@ -181,8 +180,10 @@ select option{color:#111}
 /* Shortcuts help panel */
 #helpPanel{position:fixed;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);
   width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:20px;
-  display:none;flex-direction:column;gap:16px;background:rgba(18,24,44,.55);animation:pop .22s ease-out}
+  display:none;flex-direction:column;gap:16px;background:rgba(18,24,44,.55);animation:popc .22s ease-out}
 #helpPanel.open{display:flex}
+/* Same pop-in as the other panels, but it keeps the centring transform so the panel doesn't jump */
+@keyframes popc{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}}
 .lhead{display:flex;justify-content:space-between;align-items:center;font-size:14px}
 .lhead b{font-weight:600}
 .lhead button{font-size:13px;opacity:.7;padding:4px 12px;border-radius:10px;background:none;border:1px solid var(--edge);color:var(--ink);cursor:pointer}
@@ -191,6 +192,10 @@ select option{color:#111}
   font-family:inherit;font-size:11px;font-weight:600;line-height:1.5;color:var(--ink);
   background:rgba(255,255,255,.14);border:1px solid var(--edge);pointer-events:none}
 .lhead small{margin:0 auto 0 10px;font-size:12px;opacity:.55}
+/* Help panel: key badges sit inline next to their description instead of floating on top */
+#helpGrid .key{position:static;flex:none;white-space:nowrap}
+/* Quick links: the grid the tiles live in */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
 .tile{position:relative;border-radius:16px;min-width:0}
 .tile.drag{opacity:.35}
 .tile a,.addbtn{display:flex;flex-direction:column;align-items:center;gap:.5em;padding:.6em .3em;border-radius:16px;
@@ -210,10 +215,10 @@ select option{color:#111}
 .lscreen{display:flex;flex-direction:column;gap:6px;align-items:flex-start;font-size:12px;color:var(--dim)}
 .lscreen[hidden]{display:none}
 .lscreen button{padding:6px 12px;border-radius:10px;border:1px solid var(--edge);font-size:12px;color:var(--ink)}
-.key{position:absolute;top:4px;left:8px;min-width:1.7em;padding:.1em .4em;border-radius:6px;text-align:center;
-  font-family:inherit;font-size:11px;font-weight:600;line-height:1.5;color:var(--ink);
-  background:rgba(255,255,255,.14);border:1px solid var(--edge);pointer-events:none}
-.lhead small{margin:0 auto 0 10px;font-size:12px;opacity:.55}
+/* Agenda: scrolls if there are lots of items, with day headings and faded past events */
+.agenda{max-height:45vh;overflow-y:auto}
+.agenda li.head{font-size:.75em;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin-top:.5em}
+.agenda li.past{opacity:.4}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -222,7 +227,7 @@ select option{color:#111}
 <!-- The moving background -->
 <div class="blobs" aria-hidden="true"><div class="blob"></div><div class="blob"></div><div class="blob"></div><div class="blob"></div></div>
 
-<!-- Top-right buttons: white noise + fullscreen -->
+<!-- Top-left button: opens the menu (focus, noise, colours, calendar) -->
 <nav class="bar">
   <button id="menuBtn" aria-label="Open menu" aria-expanded="false" title="Settings (S)">
     <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg>
@@ -307,7 +312,7 @@ select option{color:#111}
 </section>
 
   <section class="pane" data-pane="cal" hidden>
-    <div class="row">Shows today's and tomorrow's events from your Google Calendar on the dock. Read-only: the dock can never change your events.</div>
+    <div class="row">Shows today's and tomorrow's events and tasks from your Google Calendar and Google Tasks on the dock. Read-only: the dock can never change them.</div>
     <button class="play" id="calBtn">Connect Google Calendar</button>
     <div class="status" id="calStatus"></div>
     <div class="status" id="calInfo"></div>
@@ -675,18 +680,19 @@ document.addEventListener('click', e => {
 const savedTab = store.get('dockTab', 'focus');
 showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'focus');
 
-/* ============ Google Calendar (read-only) ============
-   Uses Google's sign-in popup, then asks the Calendar API for today's and tomorrow's
-   events. Everything happens in your browser: there is no server, and your calendar
-   data is never stored, only shown. */
+/* ============ Google Calendar + Tasks (read-only) ============
+   Uses Google's sign-in popup, then asks the Calendar and Tasks APIs for today's and
+   tomorrow's events and tasks. Everything happens in your browser: there is no server,
+   and your data is never stored, only shown. */
 const GCAL_CLIENT_ID = (window.DOCK_CONFIG && DOCK_CONFIG.googleClientId) || '';   // comes from config.js
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly';
 const gcalReady = !!GCAL_CLIENT_ID && !GCAL_CLIENT_ID.includes('PASTE_');   // false until config.js has a real ID
 
 let gTok = null;        // access token (Google gives one that lasts about an hour)
 let gExp = 0;           // when that token runs out (ms)
 let gClient = null;     // Google's token helper
 let gEvents = [];       // events from the last refresh
+let gTasks = [];        // tasks from the last refresh
 let gState = 'off';     // 'off' | 'ok' | 'reconnect' (needs a tap) | 'error'
 let gNext = 0;          // when to refresh next (ms)
 let gTry = 0;           // when we last tried to reconnect by ourselves (ms)
@@ -699,6 +705,7 @@ function gDone(){ clearTimeout(gTimer); gMsg = ''; }   // call when Google has a
 
 const tm = d => d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', hour12: !use24});
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');   // e.g. 2026-10-07
 
 /* Load Google's sign-in script (once, even if asked for several times) */
 let gsiQueue = null;
@@ -743,10 +750,10 @@ function calConnect(){
 }
 function calDisconnect(){
   if(gTok && window.google) google.accounts.oauth2.revoke(gTok, () => {});
-  gTok = null; gEvents = []; gState = 'off'; gWasOn = false; store.set('dockGcal', false); calUI();
+  gTok = null; gEvents = []; gTasks = []; gState = 'off'; gWasOn = false; store.set('dockGcal', false); calUI();
 }
 
-/* Small helper: call the Calendar API with our token */
+/* Small helper: call the Calendar/Tasks API with our token */
 async function gGet(url){
   const r = await fetch(url, {headers: {Authorization: 'Bearer ' + gTok}});
   if(r.status === 401){ gTok = null; throw new Error('expired'); }
@@ -768,7 +775,7 @@ async function refreshCal(){
     const cals = all.filter(c => c.selected).slice(0, 8);
     const from = new Date(); from.setHours(0, 0, 0, 0);
     const to = new Date(from); to.setDate(to.getDate() + 2);          // start of today to end of tomorrow
-    const q = 'singleEvents=true&orderBy=startTime&maxResults=25&timeMin=' + encodeURIComponent(from.toISOString())
+    const q = 'singleEvents=true&orderBy=startTime&maxResults=100&timeMin=' + encodeURIComponent(from.toISOString())
             + '&timeMax=' + encodeURIComponent(to.toISOString());
     const lists = await Promise.all(cals.map(c =>
       gGet('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id) + '/events?' + q)
@@ -783,6 +790,14 @@ async function refreshCal(){
           })))
         .catch(() => [])));                                              // one broken calendar doesn't break the rest
     gEvents = lists.flat().sort((a, b) => a.start - b.start);
+    /* Google Tasks: only tasks with a due date can be placed on a day */
+    try{
+      const tl = (await gGet('https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=20')).items || [];
+      gTasks = (await Promise.all(tl.map(l =>
+        gGet('https://tasks.googleapis.com/tasks/v1/lists/' + encodeURIComponent(l.id) + '/tasks?showCompleted=false&maxResults=100')
+          .then(j => (j.items || []).filter(t => t.due).map(t => ({title: t.title || '(no title)', due: t.due.slice(0, 10)})))
+          .catch(() => [])))).flat();
+    }catch(e){ gTasks = []; }                                            // Tasks failing doesn't break the calendar
     gState = 'ok'; gErr = ''; gUpdated = new Date(); gNext = Date.now() + 5 * 60000;
   }catch(err){
     gState = err.message === 'expired' ? 'reconnect' : 'error'; gErr = err.message === 'expired' ? '' : err.message; gNext = Date.now() + 60000;
@@ -790,7 +805,7 @@ async function refreshCal(){
   calUI();
 }
 
-/* Draw the event list under the clock */
+/* Draw today's and tomorrow's events and tasks under the clock */
 function renderAgenda(){
   const ul = $('agenda'); ul.innerHTML = '';
   const add = (label, text, cls, color) => {
@@ -803,15 +818,24 @@ function renderAgenda(){
   if(gState === 'reconnect'){ add('', 'Google Calendar: tap to reconnect', 'link').onclick = calConnect; return; }
   if(gState === 'error'){ add('', "Calendar couldn't update, retrying", ''); return; }
   if(gState !== 'ok') return;
-  const now = new Date(), today = new Date();
-  const upcoming = gEvents.filter(e => e.end > now).slice(0, 4);
-  if(!upcoming.length){ add('', 'Nothing else coming up', ''); return; }
-  let firstNext = false;
-  upcoming.forEach(e => {
-    const isNow = e.start <= now;
-    const cls = isNow ? 'now' : (!firstNext ? 'next' : ''); if(!isNow) firstNext = true;
-    const day = sameDay(e.start, today) ? '' : 'Tmrw ';
-    add(e.allDay ? day + 'All day' : day + tm(e.start), e.title, cls, e.color);
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let firstNext = false;                                   // the first event still to come gets highlighted
+  [0, 1].forEach(n => {                                    // 0 = today, 1 = tomorrow
+    const s = new Date(todayStart); s.setDate(s.getDate() + n);
+    const e2 = new Date(s); e2.setDate(e2.getDate() + 1);
+    add('', n ? 'Tomorrow' : 'Today', 'head');
+    const evs = gEvents.filter(e => e.start < e2 && e.end > s);
+    const tasks = gTasks.filter(t => t.due === ymd(s) || (n === 0 && t.due < ymd(s)));   // today also shows overdue tasks
+    evs.forEach(e => {
+      const isNow = e.start <= now && e.end > now, past = e.end <= now;
+      const cls = isNow ? 'now' : past ? 'past' : (!firstNext ? 'next' : '');
+      if(!isNow && !past) firstNext = true;
+      add(e.allDay ? 'All day' : tm(e.start), e.title, cls, e.color);
+    });
+    tasks.forEach(t => add('☐ Task', t.title + (t.due < ymd(s) ? ' (overdue)' : ''), ''));
+    if(!evs.length && !tasks.length) add('', 'Nothing planned', 'past');
   });
 }
 
