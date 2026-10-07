@@ -64,7 +64,7 @@ body.idle .bar{opacity:0;pointer-events:none}
   grid-template-columns:1.35fr 1fr;gap:clamp(12px,3vmin,32px);
   padding:clamp(14px,4vmin,44px)}
 /* On tall/portrait screens, stack clock above notes */
-@media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+@media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto 1fr;padding-top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px))}}
 
 .clock{align-self:center;min-width:0}
 .time{font-size:clamp(56px,25vmin,280px);font-weight:200;letter-spacing:-.045em;
@@ -92,7 +92,7 @@ body.idle .bar{opacity:0;pointer-events:none}
 /* ---------- Buttons ---------- */
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--b2);outline-offset:2px}
-.bar{position:fixed;top:clamp(10px,2.5vmin,26px);right:clamp(10px,2.5vmin,26px);z-index:3;
+.bar{position:fixed;top:clamp(10px,2.5vmin,26px);left:clamp(10px,2.5vmin,26px);z-index:3;
   display:flex;gap:8px;transition:opacity .6s}
 .bar button{width:clamp(40px,7vmin,56px);height:clamp(40px,7vmin,56px);display:grid;place-items:center;
   border-radius:50%;background:var(--glass);border:1px solid var(--edge);
@@ -104,7 +104,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @keyframes pulse{70%{box-shadow:0 0 0 14px rgba(25,195,177,0)}100%{box-shadow:0 0 0 0 rgba(25,195,177,0)}}
 
 /* ---------- White noise panel ---------- */
-#menuPanel{position:fixed;z-index:4;right:clamp(10px,2.5vmin,26px);
+#menuPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
   top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(360px,calc(100vw - 24px));
   max-height:calc(100% - 90px);overflow:auto;padding:20px;display:none;flex-direction:column;gap:16px;
   background:rgba(18,24,44,.55);animation:pop .22s ease-out}
@@ -151,6 +151,23 @@ select option{color:#111}
 .agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .agenda i{width:.6em;height:.6em;border-radius:50%;flex:none;align-self:center;background:var(--c,#fff)}
 @media (max-aspect-ratio:1/1){.agenda li:nth-child(n+4){display:none}}  /* fewer lines on tall screens */
+/* Right column: two equal halves, calendar on top, notes below */
+.side{display:flex;flex-direction:column;gap:clamp(12px,3vmin,32px);min-height:0;min-width:0}
+.side>section{flex:1 1 0;min-height:0}
+.clock,.pill{-webkit-user-select:none;user-select:none}   /* double-clicking the clock area shouldn't highlight text */
+/* Month calendar */
+.cal{display:flex;flex-direction:column;padding:clamp(10px,2.2vmin,22px)}
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:1vmin;
+  font-size:clamp(13px,2.4vmin,18px);font-weight:600}
+.calhead span{cursor:pointer}
+.calhead button{width:2em;height:2em;border-radius:50%;opacity:.6;font-size:1.1em}
+.calhead button:hover{opacity:1;background:rgba(255,255,255,.1)}
+.calgrid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;
+  align-items:center;text-align:center;font-size:clamp(11px,2.1vmin,17px);font-weight:300;font-variant-numeric:tabular-nums}
+.calgrid .dow{color:var(--dim);font-size:.8em}
+.calgrid .d{justify-self:center;display:grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%}
+.calgrid .d.out{color:var(--dim);opacity:.45}
+.calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -176,11 +193,21 @@ select option{color:#111}
     <ul class="agenda" id="agenda"></ul>
   </section>
 
-  <section class="notes glass">
+  <div class="side">
+    <section class="cal glass" aria-label="Calendar">
+      <div class="calhead">
+        <button id="calPrev" aria-label="Previous month">&#8249;</button>
+        <span id="calTitle" title="Click to jump back to this month"></span>
+        <button id="calNext" aria-label="Next month">&#8250;</button>
+      </div>
+      <div class="calgrid" id="calGrid"></div>
+    </section>
+    <section class="notes glass">
     <h2>Notes</h2>
     <ul id="list"></ul>
     <input id="newNote" placeholder="Add a note and press Enter" maxlength="140" autocomplete="off">
   </section>
+  </div>
 </main>
 
 <!-- One menu for everything: tabs switch between Focus timer, White noise and Blob colours -->
@@ -233,7 +260,7 @@ select option{color:#111}
     <div class="status" id="calStatus"></div>
   </section>
 
-  <button class="ghost" id="fsBtn">Enter fullscreen</button>
+  <div class="status">Fullscreen: double-click empty space, or press F</div>
 </aside>
 
 <script>
@@ -259,6 +286,7 @@ function tick(){
   $('sec').textContent = String(d.getSeconds()).padStart(2,'0');
   $('ampm').textContent = suffix;
   $('date').textContent = d.toLocaleDateString(undefined, {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  if(d.toDateString() !== lastDay){ lastDay = d.toDateString(); calView = new Date(d.getFullYear(), d.getMonth(), 1); renderMonth(); }
 
   /* sleep timer check, done once a second together with the clock */
   if(endAt){
@@ -516,7 +544,7 @@ showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'foc
    Uses Google's sign-in popup, then asks the Calendar API for today's and tomorrow's
    events. Everything happens in your browser: there is no server, and your calendar
    data is never stored, only shown. */
-const GCAL_CLIENT_ID = '859904949611-hfevlsbfuko5ghnp93jpjt7g6kvdut7c.apps.googleusercontent.com';          // your Google OAuth client ID (see setup steps)
+const GCAL_CLIENT_ID = 'PASTE_CLIENT_ID_HERE';          // your Google OAuth client ID (see setup steps)
 const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const gcalReady = !GCAL_CLIENT_ID.includes('PASTE_');   // false until you paste a real ID
 
@@ -529,32 +557,44 @@ let gNext = 0;          // when to refresh next (ms)
 let gTry = 0;           // when we last tried to reconnect by ourselves (ms)
 let gUpdated = null;    // time of last good refresh
 let gWasOn = store.get('dockGcal', false);   // did you connect before?
+let gErr = '';          // last error text, shown in the Calendar tab so we can see what went wrong
 
 const tm = d => d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', hour12: !use24});
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
 
-/* Load Google's sign-in script only when it's needed */
+/* Load Google's sign-in script (once, even if asked for several times) */
+let gsiQueue = null;
 function loadGsi(cb){
-  if(window.google && google.accounts) return cb();
+  if(window.google && google.accounts) return cb();      // already loaded: run straight away
+  if(gsiQueue){ gsiQueue.push(cb); return; }             // loading right now: wait for it
+  gsiQueue = [cb];
   const sc = document.createElement('script');
-  sc.src = 'https://accounts.google.com/gsi/client'; sc.onload = cb;
-  sc.onerror = () => { gState = 'error'; calUI(); };
+  sc.src = 'https://accounts.google.com/gsi/client';
+  sc.onload = () => { const q = gsiQueue; gsiQueue = null; q.forEach(f => f()); };
+  sc.onerror = () => { gsiQueue = null; gErr = "can't load Google's sign-in script (offline or blocked?)"; gState = 'error'; calUI(); };
   document.head.append(sc);
 }
-/* Ask Google for a token. First time you'll see the sign-in popup; later it's usually silent. */
+/* Set up Google's token helper (only once) */
+function initGcalClient(){
+  if(gClient) return;
+  gClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE,
+    callback: r => {
+      if(!r || r.error || !r.access_token){ gErr = (r && r.error) || 'no token returned'; gState = 'reconnect'; return calUI(); }
+      gTok = r.access_token; gExp = Date.now() + (r.expires_in - 120) * 1000;
+      gErr = ''; gWasOn = true; store.set('dockGcal', true); gState = 'ok'; refreshCal();
+    },
+    error_callback: err => { gErr = (err && err.type) || 'unknown'; gState = 'reconnect'; calUI(); }   // popup blocked or closed
+  });
+}
+/* Ask Google for a token. Must run inside a tap/click, or the browser blocks the popup. */
 function calConnect(){
   if(!gcalReady){ calUI(); return; }
+  gErr = '';
   loadGsi(() => {
-    if(!gClient) gClient = google.accounts.oauth2.initTokenClient({
-      client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE,
-      callback: r => {
-        if(!r || !r.access_token){ gState = 'reconnect'; return calUI(); }
-        gTok = r.access_token; gExp = Date.now() + (r.expires_in - 120) * 1000;
-        gWasOn = true; store.set('dockGcal', true); gState = 'ok'; refreshCal();
-      },
-      error_callback: () => { gState = 'reconnect'; calUI(); }   // popup blocked or closed
-    });
-    gClient.requestAccessToken({prompt: ''});
+    initGcalClient();
+    const hint = store.get('dockGcalHint', '');          // your email: lets Google skip the "choose account" step
+    gClient.requestAccessToken(hint ? {prompt: '', hint} : {prompt: ''});
   });
 }
 function calDisconnect(){
@@ -578,8 +618,10 @@ async function refreshCal(){
   }
   try{
     /* the calendars you have ticked in Google Calendar (up to 8) */
-    const cals = (await gGet('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50'))
-      .items.filter(c => c.selected).slice(0, 8);
+    const all = (await gGet('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50')).items || [];
+    const me = all.find(c => c.primary);                 // your main calendar's id is your email address
+    if(me) store.set('dockGcalHint', me.id);             // kept only in this browser
+    const cals = all.filter(c => c.selected).slice(0, 8);
     const from = new Date(); from.setHours(0, 0, 0, 0);
     const to = new Date(from); to.setDate(to.getDate() + 2);          // start of today to end of tomorrow
     const q = 'singleEvents=true&orderBy=startTime&maxResults=25&timeMin=' + encodeURIComponent(from.toISOString())
@@ -597,9 +639,9 @@ async function refreshCal(){
           })))
         .catch(() => [])));                                              // one broken calendar doesn't break the rest
     gEvents = lists.flat().sort((a, b) => a.start - b.start);
-    gState = 'ok'; gUpdated = new Date(); gNext = Date.now() + 5 * 60000;
+    gState = 'ok'; gErr = ''; gUpdated = new Date(); gNext = Date.now() + 5 * 60000;
   }catch(err){
-    gState = err.message === 'expired' ? 'reconnect' : 'error'; gNext = Date.now() + 60000;
+    gState = err.message === 'expired' ? 'reconnect' : 'error'; gErr = err.message === 'expired' ? '' : err.message; gNext = Date.now() + 60000;
   }
   calUI();
 }
@@ -637,23 +679,72 @@ function calUI(){
     : gState === 'ok' ? 'Connected. Updated ' + tm(gUpdated)
     : gState === 'reconnect' ? 'Needs one tap to reconnect (Google sign-ins last about an hour).'
     : gState === 'error' ? "Couldn't reach Google Calendar, retrying." : '';
+  if(gErr && gErr !== 'popup_failed_to_open' && gState !== 'ok') st.textContent += ' Error: ' + gErr;
   renderAgenda();
 }
 $('calBtn').onclick = () => gState === 'ok' ? calDisconnect() : calConnect();
 /* Every 30 seconds: redraw (so "now" and "next" stay right) and refresh data when it's due */
 setInterval(() => { renderAgenda(); if(gWasOn && gcalReady && Date.now() >= gNext) refreshCal(); }, 30000);
 /* If you connected before, try to reconnect when the page opens */
+if(gcalReady) loadGsi(initGcalClient);   // warm up now, so a later tap can open the popup instantly
 if(gWasOn && gcalReady){ gState = 'reconnect'; gTry = Date.now(); calConnect(); }
 calUI();
+
+/* ============ Month calendar ============
+   A plain month grid with today highlighted. Arrows change month; clicking the
+   month name jumps back to this month. */
+let calView = new Date();        // the month being shown (always the 1st of that month)
+let lastDay = '';                // used to notice when midnight passes
+/* Which day does your week start on? Asks the browser; falls back to Monday. (0 = Sunday ... 6 = Saturday) */
+function weekStart(){
+  try{
+    const l = new Intl.Locale(navigator.language);
+    const w = l.getWeekInfo ? l.getWeekInfo() : l.weekInfo;
+    if(w && w.firstDay) return w.firstDay % 7;       // browsers number Sunday as 7, so % 7 turns it into 0
+  }catch(e){}
+  return 1;
+}
+function renderMonth(){
+  const g = $('calGrid'); g.innerHTML = '';
+  const first = new Date(calView.getFullYear(), calView.getMonth(), 1), ws = weekStart();
+  $('calTitle').textContent = first.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+  const cell = (cls, text) => { const el = document.createElement('div'); el.className = cls; el.textContent = text; g.append(el); };
+  for(let i = 0; i < 7; i++)                          // weekday letters (1 Jan 2023 was a Sunday)
+    cell('dow', new Date(2023, 0, 1 + (ws + i) % 7).toLocaleDateString(undefined, {weekday:'narrow'}));
+  const offset = (first.getDay() - ws + 7) % 7;       // greyed days shown before the 1st
+  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const total = Math.ceil((offset + daysInMonth) / 7) * 7;   // fill whole weeks
+  const today = new Date().toDateString();
+  for(let i = 0; i < total; i++){
+    const d = new Date(first.getFullYear(), first.getMonth(), 1 - offset + i);
+    cell('d' + (d.getMonth() !== first.getMonth() ? ' out' : '') + (d.toDateString() === today ? ' today' : ''), d.getDate());
+  }
+}
+$('calPrev').onclick = () => { calView = new Date(calView.getFullYear(), calView.getMonth() - 1, 1); renderMonth(); };
+$('calNext').onclick = () => { calView = new Date(calView.getFullYear(), calView.getMonth() + 1, 1); renderMonth(); };
+$('calTitle').onclick = () => { calView = new Date(); calView.setDate(1); renderMonth(); };
 
 /* ============ Fullscreen (+ keep the screen awake) ============ */
 let wake = null;
 async function keepAwake(){ try{ if('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); }catch(e){} }
 document.addEventListener('visibilitychange', () => { if(!document.hidden && document.fullscreenElement) keepAwake(); });
-if(!document.documentElement.requestFullscreen) $('fsBtn').style.display = 'none';  // e.g. iPhone Safari has no fullscreen API
-$('fsBtn').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+function toggleFs(){
+  if(!document.documentElement.requestFullscreen) return;     // e.g. iPhone Safari has no fullscreen API
+  if(document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+/* Double-click on empty space (anything that isn't a button, field, panel or event line) */
+addEventListener('dblclick', e => {
+  if(e.target.closest('button, input, select, textarea, label, a, .glass, .agenda')) return;
+  getSelection().removeAllRanges();                            // clear any text the double-click highlighted
+  toggleFs();
+});
+/* F key (ignored while you're typing in a field, or if Ctrl/Cmd/Alt is held) */
+addEventListener('keydown', e => {
+  if((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat
+     && !e.target.closest('input, textarea, select, [contenteditable]')){ e.preventDefault(); toggleFs(); }
+});
 document.addEventListener('fullscreenchange', () => {
-  $('fsBtn').textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen';
   if(document.fullscreenElement) keepAwake(); else if(wake){ wake.release(); wake = null; }
 });
 
