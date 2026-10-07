@@ -61,10 +61,10 @@ body.idle .bar{opacity:0;pointer-events:none}
 
 /* ---------- Layout ---------- */
 .dock{position:relative;z-index:1;height:100%;display:grid;
-  grid-template-columns:1.35fr 1fr;grid-template-rows:minmax(0,1fr) auto;gap:clamp(12px,3vmin,32px);
+  grid-template-columns:1.35fr 1fr;gap:clamp(12px,3vmin,32px);
   padding:clamp(14px,4vmin,44px)}
 /* On tall/portrait screens, stack clock above notes */
-@media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto;padding-top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px))}}
+@media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);padding-top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));padding-bottom:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px))}}
 
 .clock{align-self:center;min-width:0}
 .time{font-size:clamp(56px,25vmin,280px);font-weight:200;letter-spacing:-.045em;
@@ -105,7 +105,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 
 /* ---------- White noise panel ---------- */
 #menuPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
-  top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(380px,calc(100vw - 24px));
+  top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(360px,calc(100vw - 24px));
   max-height:calc(100% - 90px);overflow:auto;padding:20px;display:none;flex-direction:column;gap:16px;
   background:rgba(18,24,44,.55);animation:pop .22s ease-out}
 #menuPanel.open{display:flex}
@@ -126,8 +126,8 @@ select option{color:#111}
 .status{font-size:12px;color:var(--dim);min-height:1.2em}
 
 /* Tabs inside the menu + the panes they switch between */
-.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.tabs button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:12px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tabs button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:13px}
 .tabs button.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .pane{display:flex;flex-direction:column;gap:16px}
 .pane[hidden]{display:none}   /* needed because .pane sets its own display */
@@ -169,26 +169,35 @@ select option{color:#111}
 .calgrid .d.out{color:var(--dim);opacity:.45}
 .calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
 .status.bad{color:#ff8fab}
-/* Quick links strip along the bottom */
-.links{grid-column:1/-1;display:flex;gap:clamp(8px,1.8vmin,16px);overflow-x:auto;padding:4px 2px;scrollbar-width:none}
-.links::-webkit-scrollbar{display:none}
-.tile{flex:none;display:flex;align-items:center;gap:.7em;max-width:15em;padding:.55em 1.1em .55em .65em;
-  border-radius:999px;font-size:clamp(12px,2.3vmin,17px);font-weight:300;color:var(--ink);text-decoration:none;
-  background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
-.tile:hover{background:rgba(255,255,255,.15)}
+/* Quick links: bottom-left button + popup panel */
+.bar.bl{top:auto;bottom:clamp(10px,2.5vmin,26px)}      /* same look as the menu button, but in the bottom-left corner */
+#linksPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
+  bottom:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(440px,calc(100vw - 24px));
+  max-height:calc(100% - 100px);overflow:auto;padding:18px;display:none;flex-direction:column;gap:14px;
+  background:rgba(18,24,44,.55);animation:popup .22s ease-out}
+#linksPanel.open{display:flex}
+@keyframes popup{from{opacity:0;transform:translateY(8px) scale(.97)}}
+.lhead{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.lhead b{font-weight:600}
+.lhead button{font-size:13px;opacity:.7;padding:4px 12px;border-radius:10px}
+.lhead button:hover,#linksPanel.editing .lhead button{opacity:1;background:rgba(255,255,255,.12)}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:12px 8px}
+.tile{position:relative;border-radius:16px;min-width:0}
 .tile.drag{opacity:.35}
-.tile img,.tile .ph{width:1.8em;height:1.8em;border-radius:50%;flex:none;background:rgba(255,255,255,.92);object-fit:contain;padding:.25em}
-.tile .ph{display:grid;place-items:center;padding:0;font-weight:600;font-size:.85em;color:#10162a}
-.tile span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.addtile{opacity:.7;transition:opacity .6s}
-body.idle .addtile{opacity:0;pointer-events:none}      /* the + tile fades away with the other controls */
-/* Links tab in the menu */
-.pane input[type=text]{padding:.8em 1em;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);
+.tile a,.addbtn{display:flex;flex-direction:column;align-items:center;gap:.5em;padding:.6em .3em;border-radius:16px;
+  font-size:12px;font-weight:300;color:var(--ink);text-decoration:none;text-align:center;min-width:0;width:100%}
+.tile a:hover,.addbtn:hover{background:rgba(255,255,255,.1)}
+.tile img,.tile .ph{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.92);object-fit:contain;padding:8px}
+.tile .ph{display:grid;place-items:center;padding:0;font-size:18px;font-weight:600;color:#10162a}
+.tile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .rm{display:none;position:absolute;top:2px;right:8px;width:22px;height:22px;border-radius:50%;
+  background:var(--b3);color:#2b0713;font-size:11px;place-items:center}
+#linksPanel.editing .tile .rm{display:grid}            /* the red x only shows while editing */
+.plus{width:44px;height:44px;border-radius:14px;border:1.5px dashed var(--edge);display:grid;place-items:center;font-size:22px}
+.lform{display:flex;flex-direction:column;gap:8px}
+.lform[hidden]{display:none}
+#linksPanel input{padding:.8em 1em;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);
   border:1px solid var(--edge);font-family:inherit;font-weight:300;font-size:14px}
-.lnklist{list-style:none;padding:0;display:flex;flex-direction:column;gap:6px;max-height:28vh;overflow:auto}
-.lnklist li{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:300}
-.lnklist li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lnklist button{opacity:.5;padding:4px 8px}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -201,6 +210,12 @@ body.idle .addtile{opacity:0;pointer-events:none}      /* the + tile fades away 
 <nav class="bar">
   <button id="menuBtn" aria-label="Open menu" aria-expanded="false" title="Focus, noise, colours, fullscreen">
     <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg>
+  </button>
+</nav>
+<!-- Bottom-left: quick links button -->
+<nav class="bar bl">
+  <button id="linksBtn" aria-label="Quick links" aria-expanded="false" title="Quick links">
+    <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg>
   </button>
 </nav>
 
@@ -229,14 +244,12 @@ body.idle .addtile{opacity:0;pointer-events:none}      /* the + tile fades away 
     <input id="newNote" placeholder="Add a note and press Enter" maxlength="140" autocomplete="off">
   </section>
   </div>
-  <!-- Quick links (filled in by the script) -->
-  <nav class="links" id="links" aria-label="Quick links"></nav>
 </main>
 
 <!-- One menu for everything: tabs switch between Focus timer, White noise and Blob colours -->
 <aside id="menuPanel" class="glass" aria-label="Dock menu">
   <div class="tabs" id="tabs">
-    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button><button data-tab="links">Links</button>
+    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button>
   </div>
 
   <section class="pane" data-pane="focus">
@@ -284,16 +297,19 @@ body.idle .addtile{opacity:0;pointer-events:none}      /* the + tile fades away 
     <div class="status" id="calInfo"></div>
   </section>
 
-  <section class="pane" data-pane="links" hidden>
-    <div class="row">Quick links appear along the bottom of the dock. Drag them there to reorder.</div>
+  <div class="status">Fullscreen: double-click empty space, or press F</div>
+</aside>
+
+<!-- Quick links panel (opens above the bottom-left button) -->
+<aside id="linksPanel" class="glass" aria-label="Quick links">
+  <div class="lhead"><b>Quick links</b><button id="lnkEdit">Edit</button></div>
+  <div class="lgrid" id="lgrid"></div>
+  <div class="lform" id="lform" hidden>
     <input type="text" id="lnkUrl" placeholder="Website, e.g. github.com" autocomplete="off">
     <input type="text" id="lnkName" placeholder="Name (optional)" maxlength="40" autocomplete="off">
     <button class="play" id="lnkAdd">Add link</button>
-    <ul class="lnklist" id="lnkList"></ul>
-    <div class="status" id="lnkStatus"></div>
-  </section>
-
-  <div class="status">Fullscreen: double-click empty space, or press F</div>
+  </div>
+  <div class="status" id="lnkStatus"></div>
 </aside>
 
 <script src="config.js"></script>
@@ -559,6 +575,7 @@ function showTab(t){
   store.set('dockTab', t);
 }
 function openMenu(tab){
+  closeLinks();                      // only one popup open at a time
   if(tab) showTab(tab);
   $('menuPanel').classList.add('open'); $('menuBtn').setAttribute('aria-expanded', 'true');
 }
@@ -570,9 +587,10 @@ $('tabs').onclick = e => { const t = e.target.dataset.tab; if(t) showTab(t); };
 /* Click anywhere outside the menu to close it */
 document.addEventListener('click', e => {
   if(!e.target.closest('#menuPanel, #menuBtn, #pill')) closeMenu();
+  if(!e.target.closest('#linksPanel, #linksBtn')) closeLinks();
 });
 const savedTab = store.get('dockTab', 'focus');
-showTab(['focus', 'noise', 'colors', 'cal', 'links'].includes(savedTab) ? savedTab : 'focus');
+showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'focus');
 
 /* ============ Google Calendar (read-only) ============
    Uses Google's sign-in popup, then asks the Calendar API for today's and tomorrow's
@@ -791,42 +809,50 @@ const hostOf = u => { try{ return new URL(u).hostname.replace(/^www\./, ''); }ca
 function saveLinks(){ store.set('dockLinks', links); renderLinks(); }
 
 function renderLinks(){
-  const bar = $('links'); bar.innerHTML = '';
+  const grid = $('lgrid'); grid.innerHTML = '';
   links.forEach((l, i) => {
     const name = l.n || hostOf(l.u);
+    const box = document.createElement('div'); box.className = 'tile'; box.draggable = true;   // the box is what you drag
     const a = document.createElement('a');
-    a.className = 'tile'; a.href = l.u; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = l.u; a.draggable = true;
+    a.href = l.u; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.title = l.u; a.draggable = false;
+    /* while editing, tapping a tile must not open the site; otherwise close the panel as the site opens */
+    a.onclick = e => { if($('linksPanel').classList.contains('editing')) e.preventDefault(); else closeLinks(); };
     /* icon: the site's favicon (fetched through Google's favicon service); a letter if it can't load */
-    const img = new Image(); img.alt = '';
+    const img = new Image(); img.alt = ''; img.draggable = false;
     img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(hostOf(l.u));
     img.onerror = () => { const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = (name[0] || '?').toUpperCase(); img.replaceWith(ph); };
     const sp = document.createElement('span'); sp.textContent = name;      // textContent: names can't inject HTML
     a.append(img, sp);
+    const x = document.createElement('button'); x.className = 'rm'; x.textContent = '✕'; x.setAttribute('aria-label', 'Remove ' + name);
+    x.onclick = () => { links.splice(i, 1); saveLinks(); };
+    box.append(a, x);
     /* drag one tile onto another to move it there */
-    a.ondragstart = e => { dragFrom = i; a.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; };
-    a.ondragend = () => a.classList.remove('drag');
-    a.ondragover = e => e.preventDefault();
-    a.ondrop = e => {
+    box.ondragstart = e => { dragFrom = i; box.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; };
+    box.ondragend = () => box.classList.remove('drag');
+    box.ondragover = e => e.preventDefault();
+    box.ondrop = e => {
       e.preventDefault();
       if(dragFrom === null || dragFrom === i) return;
       const [moved] = links.splice(dragFrom, 1); links.splice(i, 0, moved); dragFrom = null; saveLinks();
     };
-    bar.append(a);
+    grid.append(box);
   });
-  const add = document.createElement('button');                           // the "+" tile opens the Links tab
-  add.className = 'tile addtile'; add.textContent = links.length ? '+' : '+ Add a quick link';
-  add.onclick = () => openMenu('links'); bar.append(add);
-
-  /* the list inside the menu (with a delete button for each) */
-  const ul = $('lnkList'); ul.innerHTML = '';
-  links.forEach((l, i) => {
-    const li = document.createElement('li');
-    const sp = document.createElement('span'); sp.textContent = l.n || hostOf(l.u);
-    const x = document.createElement('button'); x.textContent = '✕'; x.setAttribute('aria-label', 'Remove link');
-    x.onclick = () => { links.splice(i, 1); saveLinks(); };
-    li.append(sp, x); ul.append(li);
-  });
+  /* the "+" tile shows or hides the add-link form */
+  const add = document.createElement('button'); add.className = 'addbtn';
+  const plus = document.createElement('div'); plus.className = 'plus'; plus.textContent = '+';
+  const lab = document.createElement('span'); lab.textContent = 'Add';
+  add.append(plus, lab);
+  add.onclick = () => { $('lform').hidden = !$('lform').hidden; if(!$('lform').hidden) $('lnkUrl').focus(); };
+  grid.append(add);
 }
+/* open / close the panel, and the Edit toggle (shows red x buttons so links can be removed) */
+function openLinks(){ closeMenu(); $('linksPanel').classList.add('open'); $('linksBtn').setAttribute('aria-expanded', 'true'); }
+function closeLinks(){
+  $('linksPanel').classList.remove('open', 'editing'); $('lnkEdit').textContent = 'Edit';
+  $('lform').hidden = true; $('lnkStatus').textContent = ''; $('linksBtn').setAttribute('aria-expanded', 'false');
+}
+$('linksBtn').onclick = () => $('linksPanel').classList.contains('open') ? closeLinks() : openLinks();
+$('lnkEdit').onclick = () => { const on = $('linksPanel').classList.toggle('editing'); $('lnkEdit').textContent = on ? 'Done' : 'Edit'; };
 function addLink(){
   const u = cleanUrl($('lnkUrl').value);
   if(!u){ $('lnkStatus').textContent = "That doesn't look like a web address."; return; }
@@ -868,12 +894,12 @@ let idleTimer;
 function wakeUI(){
   document.body.classList.remove('idle'); clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
-    const busy = $('menuPanel').classList.contains('open') || document.activeElement === $('newNote');
+    const busy = $('menuPanel').classList.contains('open') || $('linksPanel').classList.contains('open') || document.activeElement === $('newNote');
     if(!busy) document.body.classList.add('idle'); else wakeUI();
   }, 5000);
 }
 ['mousemove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wakeUI, {passive:true}));
-addEventListener('keydown', e => { if(e.key === 'Escape') closeMenu(); });
+addEventListener('keydown', e => { if(e.key === 'Escape'){ closeMenu(); closeLinks(); } });
 wakeUI();
 tick();   // first draw of the clock (done last so everything above is ready)
 
