@@ -263,6 +263,7 @@ select option{color:#111}
   <div class="status">Fullscreen: double-click empty space, or press F</div>
 </aside>
 
+<script src="config.js"></script>
 <script>
 /* ============ Helpers ============ */
 const $ = id => document.getElementById(id);
@@ -544,9 +545,9 @@ showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'foc
    Uses Google's sign-in popup, then asks the Calendar API for today's and tomorrow's
    events. Everything happens in your browser: there is no server, and your calendar
    data is never stored, only shown. */
-const GCAL_CLIENT_ID = 'PASTE_CLIENT_ID_HERE';          // your Google OAuth client ID (see setup steps)
+const GCAL_CLIENT_ID = (window.DOCK_CONFIG && DOCK_CONFIG.googleClientId) || '';   // comes from config.js
 const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
-const gcalReady = !GCAL_CLIENT_ID.includes('PASTE_');   // false until you paste a real ID
+const gcalReady = !!GCAL_CLIENT_ID && !GCAL_CLIENT_ID.includes('PASTE_');   // false until config.js has a real ID
 
 let gTok = null;        // access token (Google gives one that lasts about an hour)
 let gExp = 0;           // when that token runs out (ms)
@@ -675,7 +676,7 @@ function renderAgenda(){
 function calUI(){
   const btn = $('calBtn'), st = $('calStatus');
   btn.textContent = gState === 'ok' ? 'Disconnect' : (gState === 'reconnect' || gWasOn ? 'Reconnect' : 'Connect Google Calendar');
-  st.textContent = !gcalReady ? 'Setup needed: paste your Google client ID into index.html first.'
+  st.textContent = !gcalReady ? 'Setup needed: paste your Google client ID into config.js first.'
     : gState === 'ok' ? 'Connected. Updated ' + tm(gUpdated)
     : gState === 'reconnect' ? 'Needs one tap to reconnect (Google sign-ins last about an hour).'
     : gState === 'error' ? "Couldn't reach Google Calendar, retrying." : '';
