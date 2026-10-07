@@ -177,11 +177,20 @@ select option{color:#111}
   background:rgba(18,24,44,.55);animation:popup .22s ease-out}
 #linksPanel.open{display:flex}
 @keyframes popup{from{opacity:0;transform:translateY(8px) scale(.97)}}
+
+/* Shortcuts help panel */
+#helpPanel{position:fixed;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:20px;
+  display:none;flex-direction:column;gap:16px;background:rgba(18,24,44,.55);animation:pop .22s ease-out}
+#helpPanel.open{display:flex}
 .lhead{display:flex;justify-content:space-between;align-items:center;font-size:14px}
 .lhead b{font-weight:600}
-.lhead button{font-size:13px;opacity:.7;padding:4px 12px;border-radius:10px}
-.lhead button:hover,#linksPanel.editing .lhead button{opacity:1;background:rgba(255,255,255,.12)}
-.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:12px 8px}
+.lhead button{font-size:13px;opacity:.7;padding:4px 12px;border-radius:10px;background:none;border:1px solid var(--edge);color:var(--ink);cursor:pointer}
+.lhead button:hover{opacity:1;background:rgba(255,255,255,.12)}
+.key{position:absolute;top:4px;left:8px;min-width:1.7em;padding:.1em .4em;border-radius:6px;text-align:center;
+  font-family:inherit;font-size:11px;font-weight:600;line-height:1.5;color:var(--ink);
+  background:rgba(255,255,255,.14);border:1px solid var(--edge);pointer-events:none}
+.lhead small{margin:0 auto 0 10px;font-size:12px;opacity:.55}
 .tile{position:relative;border-radius:16px;min-width:0}
 .tile.drag{opacity:.35}
 .tile a,.addbtn{display:flex;flex-direction:column;align-items:center;gap:.5em;padding:.6em .3em;border-radius:16px;
@@ -304,8 +313,7 @@ select option{color:#111}
     <div class="status" id="calInfo"></div>
   </section>
 
-  <div class="status">Shortcuts: F fullscreen (or double-click empty space) &middot; Q quick links &middot; S settings</div>
-</aside>
+  </aside>
 
 <!-- Quick links panel (opens above the bottom-left button) -->
 <aside id="linksPanel" class="glass" aria-label="Quick links">
@@ -323,10 +331,73 @@ select option{color:#111}
   <div class="status" id="lnkStatus"></div>
 </aside>
 
+<!-- Shortcuts help panel -->
+<aside id="helpPanel" class="glass" aria-label="Keyboard shortcuts">
+  <div class="lhead"><b>Keyboard shortcuts</b><button id="helpClose" aria-label="Close">✕</button></div>
+  <div class="lgrid" id="helpGrid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px"></div>
+</aside>
+
 <script src="config.js"></script>
 <script>
 /* ============ Helpers ============ */
 const $ = id => document.getElementById(id);
+
+/* ============ Shortcuts help panel ============ */
+const SHORTCUTS = [
+  ['?', 'Show this help'],
+  ['F', 'Toggle fullscreen'],
+  ['Q', 'Toggle quick links'],
+  ['S', 'Toggle settings'],
+  ['Esc', 'Close any open panel'],
+  ['Click time', 'Toggle 12h / 24h'],
+  ['Click note', 'Mark complete / incomplete'],
+  ['Enter (in note input)', 'Add note'],
+  ['Click pill', 'Start next session or open Focus tab'],
+  ['1-9, a-z (in quick links)', 'Open link'],
+  ['Double-click empty space', 'Toggle fullscreen'],
+];
+
+function renderHelp(){
+  const grid = $('helpGrid'); grid.innerHTML = '';
+  SHORTCUTS.forEach(([key, desc]) => {
+    const box = document.createElement('div');
+    box.style.display = 'flex';
+    box.style.alignItems = 'center';
+    box.style.gap = '10px';
+    box.style.padding = '8px 10px';
+    box.style.background = 'rgba(255,255,255,.05)';
+    box.style.borderRadius = '10px';
+    box.style.border = '1px solid var(--edge)';
+    const kb = document.createElement('kbd');
+    kb.className = 'key';
+    kb.style.minWidth = 'unset';
+    kb.style.padding = '.2em .6em';
+    kb.textContent = key;
+    const sp = document.createElement('span');
+    sp.style.fontSize = '13px';
+    sp.style.color = 'var(--dim)';
+    sp.textContent = desc;
+    box.append(kb, sp);
+    grid.append(box);
+  });
+}
+
+function openHelp(){
+  closeMenu(); closeLinks();
+  renderHelp();
+  $('helpPanel').classList.add('open');
+}
+function closeHelp(){
+  $('helpPanel').classList.remove('open');
+}
+$('helpClose').onclick = closeHelp;
+addEventListener('keydown', e => {
+  if(e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey
+     && !e.target.closest('input, textarea, select, [contenteditable]')){
+    e.preventDefault();
+    $('helpPanel').classList.contains('open') ? closeHelp() : openHelp();
+  }
+});
 /* localStorage can fail (private mode etc.), so every use is wrapped safely */
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
@@ -599,6 +670,7 @@ $('tabs').onclick = e => { const t = e.target.dataset.tab; if(t) showTab(t); };
 document.addEventListener('click', e => {
   if(!e.target.closest('#menuPanel, #menuBtn, #pill')) closeMenu();
   if(!e.target.closest('#linksPanel, #linksBtn')) closeLinks();
+  if(!e.target.closest('#helpPanel')) closeHelp();
 });
 const savedTab = store.get('dockTab', 'focus');
 showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'focus');
@@ -1005,7 +1077,7 @@ function wakeUI(){
   }, 5000);
 }
 ['mousemove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wakeUI, {passive:true}));
-addEventListener('keydown', e => { if(e.key === 'Escape'){ closeMenu(); closeLinks(); } });
+addEventListener('keydown', e => { if(e.key === 'Escape'){ closeMenu(); closeLinks(); closeHelp(); } });
 wakeUI();
 tick();   // first draw of the clock (done last so everything above is ready)
 
