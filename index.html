@@ -201,6 +201,10 @@ select option{color:#111}
 .lscreen{display:flex;flex-direction:column;gap:6px;align-items:flex-start;font-size:12px;color:var(--dim)}
 .lscreen[hidden]{display:none}
 .lscreen button{padding:6px 12px;border-radius:10px;border:1px solid var(--edge);font-size:12px;color:var(--ink)}
+.key{position:absolute;top:4px;left:8px;min-width:1.7em;padding:.1em .4em;border-radius:6px;text-align:center;
+  font-family:inherit;font-size:11px;font-weight:600;line-height:1.5;color:var(--ink);
+  background:rgba(255,255,255,.14);border:1px solid var(--edge);pointer-events:none}
+.lhead small{margin:0 auto 0 10px;font-size:12px;opacity:.55}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -211,13 +215,13 @@ select option{color:#111}
 
 <!-- Top-right buttons: white noise + fullscreen -->
 <nav class="bar">
-  <button id="menuBtn" aria-label="Open menu" aria-expanded="false" title="Focus, noise, colours, fullscreen">
+  <button id="menuBtn" aria-label="Open menu" aria-expanded="false" title="Settings (S)">
     <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg>
   </button>
 </nav>
 <!-- Bottom-left: quick links button -->
 <nav class="bar bl">
-  <button id="linksBtn" aria-label="Quick links" aria-expanded="false" title="Quick links">
+  <button id="linksBtn" aria-label="Quick links" aria-expanded="false" title="Quick links (Q)">
     <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg>
   </button>
 </nav>
@@ -300,12 +304,12 @@ select option{color:#111}
     <div class="status" id="calInfo"></div>
   </section>
 
-  <div class="status">Fullscreen: double-click empty space, or press F</div>
+  <div class="status">Shortcuts: F fullscreen (or double-click empty space) &middot; Q quick links &middot; S settings</div>
 </aside>
 
 <!-- Quick links panel (opens above the bottom-left button) -->
 <aside id="linksPanel" class="glass" aria-label="Quick links">
-  <div class="lhead"><b>Quick links</b><button id="lnkEdit">Edit</button></div>
+  <div class="lhead"><b>Quick links</b><small>press the key on a tile</small><button id="lnkEdit">Edit</button></div>
   <div class="lgrid" id="lgrid"></div>
   <div class="lform" id="lform" hidden>
     <input type="text" id="lnkUrl" placeholder="Website, e.g. github.com" autocomplete="off">
@@ -870,6 +874,14 @@ function openAway(url){
   return true;
 }
 
+/* Keys that open tiles directly: 1-9 then 0, then letters. Q, S and F are skipped because they are shortcuts themselves. */
+const LINK_KEYS = '1234567890abcdghijklmnoprtuvwxyz';
+/* Opens one link in the separate window (used by clicks AND by keys) */
+function launch(l){
+  if(openAway(l.u)) closeLinks();
+  else $('lnkStatus').textContent = 'The browser blocked the new window. Allow pop-ups for this site and try again.';
+}
+
 function renderLinks(){
   const grid = $('lgrid'); grid.innerHTML = '';
   links.forEach((l, i) => {
@@ -882,8 +894,7 @@ function renderLinks(){
       if($('linksPanel').classList.contains('editing')){ e.preventDefault(); return; }   // editing: don't open anything
       if(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;                       // modifier keys: normal browser behaviour
       e.preventDefault();                                                                // we open the window ourselves
-      if(openAway(l.u)) closeLinks();
-      else $('lnkStatus').textContent = 'The browser blocked the new window. Allow pop-ups for this site and try again.';
+      launch(l);
     };
     /* icon: the site's favicon (fetched through Google's favicon service); a letter if it can't load */
     const img = new Image(); img.alt = ''; img.draggable = false;
@@ -894,6 +905,9 @@ function renderLinks(){
     const x = document.createElement('button'); x.className = 'rm'; x.textContent = '✕'; x.setAttribute('aria-label', 'Remove ' + name);
     x.onclick = () => { links.splice(i, 1); saveLinks(); };
     box.append(a, x);
+    if(LINK_KEYS[i]){                                         // the key that opens this tile
+      const kb = document.createElement('kbd'); kb.className = 'key'; kb.textContent = LINK_KEYS[i].toUpperCase(); box.append(kb);
+    }
     /* drag one tile onto another to move it there */
     box.ondragstart = e => { dragFrom = i; box.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; };
     box.ondragend = () => box.classList.remove('drag');
@@ -933,6 +947,22 @@ $('lnkAdd').onclick = addLink;
 [$('lnkUrl'), $('lnkName')].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') addLink(); }));
 renderLinks();
 refreshScreenUI();
+
+/* Keyboard shortcuts.
+   Q = quick links, S = settings, and while quick links are open a number/letter opens that tile.
+   (F = fullscreen is handled further down.) Ignored while you type in a box, or with Ctrl/Cmd/Alt held. */
+addEventListener('keydown', e => {
+  if(e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if(e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  const k = e.key.toLowerCase();
+  const linksOpen = $('linksPanel').classList.contains('open');
+  if(k === 'q'){ e.preventDefault(); linksOpen ? closeLinks() : openLinks(); return; }
+  if(k === 's'){ e.preventDefault(); $('menuPanel').classList.contains('open') ? closeMenu() : openMenu(); return; }
+  if(linksOpen && !$('linksPanel').classList.contains('editing')){      // not while editing (red x mode)
+    const i = LINK_KEYS.indexOf(k);
+    if(i >= 0 && i < links.length){ e.preventDefault(); launch(links[i]); }
+  }
+});
 if('getScreenDetails' in window && navigator.permissions){
   /* permission already granted earlier? then pick up the screens silently (the permission was renamed once, so try both names) */
   navigator.permissions.query({name: 'window-management'})
