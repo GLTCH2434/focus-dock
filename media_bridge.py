@@ -7,11 +7,16 @@ Then open Desk Dock. The page polls this local service for the active MPRIS play
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import mimetypes
+import os
 import subprocess
 import urllib.parse
+import urllib.request
 
 HOST = "127.0.0.1"
 PORT = 8765
+ART_CACHE = {}
+MAX_ART_BYTES = 8 * 1024 * 1024
 
 
 def run_playerctl(*args):
@@ -45,10 +50,43 @@ def active_player():
     return paused
 
 
+def artwork_key(url):
+    return url.strip() if url else ""
+
+
+def fetch_artwork(url):
+    """Return (bytes, content_type) for an MPRIS artwork URL, with a small in-memory cache."""
+    url = artwork_key(url)
+    if not url:
+        return None, None
+    cached = ART_CACHE.get(url)
+    if cached:
+        return cached
+    try:
+        if url.startswith("file://"):
+            path = urllib.parse.unquote(urllib.parse.urlparse(url).path)
+            with open(path, "rb") as f:
+                data = f.read(MAX_ART_BYTES + 1)
+            content_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+        else:
+            req = urllib.request.Request(url, headers={"User-Agent": "DeskDock/1.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                content_type = (resp.headers.get_content_type() or "image/jpeg")
+                data = resp.read(MAX_ART_BYTES + 1)
+        if len(data) > MAX_ART_BYTES or not content_type.startswith("image/"):
+            return None, None
+        ART_CACHE[url] = (data, content_type)
+        if len(ART_CACHE) > 12:
+            ART_CACHE.pop(next(iter(ART_CACHE)))
+        return data, content_type
+    except (OSError, ValueError, urllib.error.URLError, TimeoutError):
+        return None, None
+
+
 def status_payload():
     player = active_player()
     if not player:
-        return {"playing": False}
+        return {"active": False, "playing": False}
 
     fmt = "{{playerName}}\t{{status}}\t{{artist}}\t{{title}}\t{{album}}\t{{mpris:length}}\t{{position}}\t{{mpris:artUrl}}"
     row = run_playerctl("-p", player, "metadata", "--format", fmt)
@@ -72,7 +110,7 @@ def status_payload():
         "album": album,
         "length": length_us,
         "position": position_us,
-        "art": art,
+        "art": (f"http://{HOST}:{PORT}/art?url=" + urllib.parse.quote(art, safe="")) if art else "",
     }
 
 
@@ -98,11 +136,29 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/status":
             self._send(status_payload())
+        elif parsed.path == "/art":
+            self._artwork(urllib.parse.parse_qs(parsed.query).get("url", [""])[0])
         elif parsed.path == "/command":
             cmd = urllib.parse.parse_qs(parsed.query).get("cmd", [""])[0]
             self._command(cmd)
         else:
             self._send({"error": "not found"}, 404)
+
+    def _artwork(self, encoded_url):
+        url = urllib.parse.unquote(encoded_url)
+        data, content_type = fetch_artwork(url)
+        if not data:
+            self.send_response(404)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
