@@ -149,7 +149,7 @@ select option{color:#111}
 .agenda li span{overflow:hidden;text-overflow:ellipsis}
 .agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .agenda li.has-location{position:relative;cursor:help}
-.agenda .event-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);z-index:20;display:none;width:max-content;max-width:min(420px,70vw);padding:8px 10px;border:1px solid var(--edge);border-radius:9px;background:rgba(18,24,44,.94);color:var(--ink);font-size:.72em;font-weight:400;line-height:1.35;white-space:normal;box-shadow:0 8px 24px rgba(0,0,0,.22);pointer-events:auto}
+.agenda .event-tip{position:absolute;left:50%;top:calc(100% + 8px);left:0;transform:none;z-index:20;display:none;width:max-content;max-width:min(420px,70vw);padding:8px 10px;border:1px solid var(--edge);border-radius:9px;background:rgba(18,24,44,.94);color:var(--ink);font-size:.72em;font-weight:400;line-height:1.35;white-space:normal;box-shadow:0 8px 24px rgba(0,0,0,.22);pointer-events:auto}
 .agenda li.has-location:hover .event-tip,.agenda li.has-location:focus-within .event-tip{display:flex}
 .event-tip{align-items:center;gap:9px}
 .event-tip .event-location{overflow-wrap:anywhere}
