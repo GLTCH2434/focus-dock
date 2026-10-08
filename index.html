@@ -947,8 +947,9 @@ function renderAgenda(){
           tip.append(loc);
         }
         if(e.meet){
-          const j = document.createElement('button'); j.className = 'event-join'; j.textContent = 'Join';
-          j.onclick = ev => { ev.stopPropagation(); joinUrl(e.meet); };
+          const j = document.createElement('a'); j.className = 'event-join'; j.textContent = 'Join';
+          j.href = e.meet; j.target = '_blank'; j.rel = 'noopener noreferrer';
+          j.addEventListener('click', ev => ev.stopPropagation());
           tip.append(j);
         }
         li.append(tip);
