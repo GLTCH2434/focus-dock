@@ -732,7 +732,7 @@ fRender();
 /* ============ The one menu: open/close + tabs ============ */
 const TAB_NAMES = {focus:'Focus timer', noise:'White noise', colors:'Blob colours', cal:'Google Calendar', weather:'Weather'};
 const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather'];     // order of the round buttons (keys 1 to 5)
-let lastTab = 'focus';                                                // the tool you used last
+const lastTab = 'focus';                                           // always start on Focus
 
 /* Keeps the round buttons in step: the open tool's button is highlighted, the menu button shows "expanded" */
 function syncBar(){
@@ -746,7 +746,7 @@ function showTab(t){
   lastTab = t;
   $('ptitle').textContent = TAB_NAMES[t] || '';
   document.querySelectorAll('.pane').forEach(p => p.hidden = p.dataset.pane !== t);
-  store.set('dockTab', t); syncBar();
+  syncBar();
 }
 /* Spread the round buttons out, without opening any panel */
 function expandBar(){ closeLinks(); closeHelp(); $('menuBar').classList.add('open'); syncBar(); }
@@ -773,8 +773,7 @@ document.addEventListener('click', e => {
   if(!e.target.closest('#linksPanel, #linksBtn')) closeLinks();
   if(!e.target.closest('#helpPanel')) closeHelp();
 });
-const savedTab = store.get('dockTab', 'focus');
-showTab(['focus', 'noise', 'colors', 'cal', 'weather'].includes(savedTab) ? savedTab : 'focus');
+showTab('focus');
 
 /* ============ Google Calendar + Tasks (read-only) ============
    Uses Google's sign-in popup, then asks the Calendar and Tasks APIs for today's and
