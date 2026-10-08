@@ -227,62 +227,44 @@ select option{color:#111}
 @media (max-width:560px){.media-controls{left:50%;right:auto;width:min(430px,calc(100vw - 20px));max-width:none}
   .media-controls .m-meta{max-width:30vw}.media-controls .m-art-wrap{width:34px;height:34px}.media-controls .m-btn{width:40px;height:40px;min-width:40px}.media-controls .m-actions{gap:4px}}
 /* Quick links: bottom-left button + popup panel */
-.bar.bl{top:auto;bottom:clamp(10px,2.5vmin,26px)}      /* same look as the menu button, but in the bottom-left corner */
+.bar.bl{top:auto;bottom:clamp(10px,2.5vmin,26px)}
 #linksPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
-  bottom:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(440px,calc(100vw - 24px));
-  max-height:calc(100% - 100px);overflow:auto;padding:18px;display:none;flex-direction:column;gap:14px;
-  background:rgba(18,24,44,.55);animation:popup .22s ease-out}
+  bottom:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));width:min(470px,calc(100vw - 24px));
+  max-height:calc(100% - 100px);overflow:auto;padding:20px;display:none;flex-direction:column;gap:16px;
+  background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 22px 60px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.1);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);animation:popup .22s ease-out}
 #linksPanel.open{display:flex}
-@keyframes popup{from{opacity:0;transform:translateY(8px) scale(.97)}}
-
-/* Shortcuts help panel */
-#helpPanel{position:fixed;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:min(680px,calc(100vw - 24px));max-height:min(720px,calc(100vh - 48px));overflow:auto;padding:24px;
-  display:none;flex-direction:column;gap:20px;background:rgba(18,24,44,.72);
-  border:1px solid rgba(255,255,255,.18);box-shadow:0 24px 80px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.12);
-  animation:popc .22s ease-out}
-#helpPanel.open{display:flex}
-@keyframes popc{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}}
-#helpPanel .lhead{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--edge)}
-#helpPanel .lhead b{font-size:18px;font-weight:600;letter-spacing:-.02em}
-#helpPanel .lhead small{margin:0 auto 0 0;font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase}
-#helpPanel .lhead button{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;font-size:14px;opacity:.7;
-  padding:0;background:rgba(255,255,255,.05);border:1px solid var(--edge);color:var(--ink);cursor:pointer}
-#helpPanel .lhead button:hover{opacity:1;background:rgba(255,255,255,.12)}
-#helpGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-#helpGrid > div{display:flex;align-items:center;gap:12px;min-height:58px;padding:10px 12px;
-  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.11);border-radius:14px;
-  transition:background .15s,border-color .15s,transform .15s}
-#helpGrid > div:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
-#helpGrid .key{position:static;flex:none;min-width:46px;padding:.45em .65em;border-radius:9px;text-align:center;
-  font-family:inherit;font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
-  background:rgba(255,255,255,.09);border:1px solid var(--edge);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 3px 8px rgba(0,0,0,.15);pointer-events:none}
-#helpGrid span{font-size:12px;line-height:1.35;color:var(--dim)}
-@media (max-width:560px){
-  #helpPanel{padding:18px;width:min(520px,calc(100vw - 20px))}
-  #helpGrid{grid-template-columns:1fr}
-}
-/* Quick links: the grid the tiles live in */
-.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
-.tile{position:relative;border-radius:16px;min-width:0}
+@keyframes popup{from{opacity:0;transform:translateY(10px) scale(.97)}}
+#linksPanel .lhead{display:flex;align-items:center;gap:10px;padding:0 0 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+#linksPanel .lhead b{font-size:17px;font-weight:600;letter-spacing:-.02em}
+#linksPanel .lhead small{margin-left:auto;font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+#linksPanel .lhead button{padding:7px 11px;border-radius:10px;border:1px solid var(--edge);background:rgba(255,255,255,.06);color:var(--ink);font:inherit;font-size:11px;cursor:pointer}
+#linksPanel .lhead button:hover{background:rgba(255,255,255,.12)}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.tile{position:relative;border-radius:15px;min-width:0}
 .tile.drag{opacity:.35}
-.tile a,.addbtn{display:flex;flex-direction:column;align-items:center;gap:.5em;padding:.6em .3em;border-radius:16px;
-  font-size:12px;font-weight:300;color:var(--ink);text-decoration:none;text-align:center;min-width:0;width:100%}
-.tile a:hover,.addbtn:hover{background:rgba(255,255,255,.1)}
-.tile img,.tile .ph{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.92);object-fit:contain;padding:8px}
-.tile .ph{display:grid;place-items:center;padding:0;font-size:18px;font-weight:600;color:#10162a}
-.tile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tile .rm{display:none;position:absolute;top:2px;right:8px;width:22px;height:22px;border-radius:50%;
-  background:var(--b3);color:#2b0713;font-size:11px;place-items:center}
-#linksPanel.editing .tile .rm{display:grid}            /* the red x only shows while editing */
-.plus{width:44px;height:44px;border-radius:14px;border:1.5px dashed var(--edge);display:grid;place-items:center;font-size:22px}
-.lform{display:flex;flex-direction:column;gap:8px}
+.tile a,.addbtn{display:flex;position:relative;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+  min-height:78px;padding:10px 5px;border-radius:15px;font-size:11px;font-weight:350;color:var(--ink);
+  text-decoration:none;text-align:center;min-width:0;width:100%;box-sizing:border-box;border:1px solid transparent}
+.tile a:hover,.addbtn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.1)}
+.tile img,.tile .ph{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.94);object-fit:contain;padding:7px;box-sizing:border-box}
+.tile .ph{display:grid;place-items:center;padding:0;font-size:17px;font-weight:600;color:#10162a}
+.tile span{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+.tile .rm{display:none;position:absolute;top:3px;right:3px;width:21px;height:21px;border-radius:50%;background:var(--b3);color:#2b0713;font-size:11px;place-items:center;border:0;z-index:2}
+#linksPanel.editing .tile .rm{display:grid}
+.tile .key{position:absolute;top:5px;left:6px;min-width:18px;height:18px;padding:0 4px;display:grid;place-items:center;
+  border-radius:6px;background:rgba(8,13,27,.48);border:1px solid rgba(255,255,255,.13);color:var(--dim);font:500 9px/1 inherit;pointer-events:none}
+.plus{width:40px;height:40px;border-radius:12px;border:1px dashed rgba(255,255,255,.2);display:grid;place-items:center;font-size:20px;color:var(--dim)}
+.lform{display:flex;flex-direction:column;gap:8px;padding-top:2px;border-top:1px solid rgba(255,255,255,.1)}
 .lform[hidden]{display:none}
-#linksPanel input{padding:.8em 1em;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);
-  border:1px solid var(--edge);font-family:inherit;font-weight:300;font-size:14px}
-.lscreen{display:flex;flex-direction:column;gap:6px;align-items:flex-start;font-size:12px;color:var(--dim)}
-.lscreen[hidden]{display:none}
-.lscreen button{padding:6px 12px;border-radius:10px;border:1px solid var(--edge);font-size:12px;color:var(--ink)}
+#linksPanel input{padding:.75em .9em;border-radius:11px;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--edge);font-family:inherit;font-weight:300;font-size:13px}
+#linksPanel .status{font-size:11px;color:var(--dim)}
+@media (max-width:560px){
+  #linksPanel{left:10px;bottom:calc(56px + 14px);width:calc(100vw - 20px);padding:16px}
+  .lgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .tile a,.addbtn{min-height:72px}
+}
 /* Agenda: scrolls if there are lots of items, with day headings and faded past events */
 .agenda{max-height:45vh;overflow-y:auto}
 .agenda li.head{font-size:.75em;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin-top:.5em;padding-left:0}
@@ -356,7 +338,7 @@ select option{color:#111}
   <section class="clock">
     <div class="world-clock" id="worldClock" aria-live="polite"></div>
     <!-- Click the time to switch between 12h and 24h -->
-    <div class="time" id="time" title="Click to switch 12h / 24h"><span id="hm">--:--</span><small id="sec"></small><small id="ampm"></small></div>
+    <div class="time" id="time"><span id="hm">--:--</span><small id="sec"></small><small id="ampm"></small></div>
     <div class="date" id="date"></div>
     <div class="wx" id="wx" title="Weather settings"></div>
     <!-- Shows while a focus session is running. Tap it to open the Focus tab. -->
@@ -462,18 +444,14 @@ select option{color:#111}
 
 <!-- Quick links panel (opens above the bottom-left button) -->
 <aside id="linksPanel" class="glass" aria-label="Quick links">
-  <div class="lhead"><b>Quick links</b><small>press the key on a tile</small><button id="lnkEdit">Edit</button></div>
+  <div class="lhead"><b>Quick links</b><button id="lnkEdit">Edit</button></div>
   <div class="lgrid" id="lgrid"></div>
   <div class="lform" id="lform" hidden>
     <input type="text" id="lnkUrl" placeholder="Website, e.g. github.com" autocomplete="off">
     <input type="text" id="lnkName" placeholder="Name (optional)" maxlength="40" autocomplete="off">
     <button class="play" id="lnkAdd">Add link</button>
   </div>
-  <div class="lscreen" id="lscreenRow" hidden>
-    <button id="lnkScreen">Open links on my other screen</button>
-    <span id="lnkScreenInfo"></span>
-  </div>
-  <div class="status" id="lnkStatus"></div>
+<div class="status" id="lnkStatus"></div>
 </aside>
 
 <!-- Shortcuts help panel -->
@@ -1343,39 +1321,6 @@ function saveLinks(){ store.set('dockLinks', links); renderLinks(); }
    for every link instead of reusing one companion window. */
 const REUSE_LINK_WINDOW = true;
 
-/* Optional: if the browser supports it (Chrome/Edge style "Window Management"), you can allow
-   the dock to see your screens once, and links then open on your OTHER screen. */
-let screenInfo = null;                       // live list of your screens (filled in after you allow it)
-async function loadScreens(){
-  if(!('getScreenDetails' in window)) return false;
-  try{
-    screenInfo = await window.getScreenDetails();             // the browser asks for permission here
-    screenInfo.addEventListener('screenschange', refreshScreenUI);   // plugged/unplugged a monitor
-    return true;
-  }catch(e){ return false; }                                  // false = you said no
-}
-/* A screen that is NOT the one the dock is on (prefers your main screen) */
-function otherScreen(){
-  if(!screenInfo) return null;
-  const here = screenInfo.currentScreen;
-  const others = screenInfo.screens.filter(sc => sc.left !== here.left || sc.top !== here.top);
-  return others.find(sc => sc.isPrimary) || others[0] || null;
-}
-function refreshScreenUI(){
-  const row = $('lscreenRow');
-  if(!('getScreenDetails' in window)){ row.hidden = true; return; }   // this browser can't choose a screen
-  row.hidden = false;
-  const o = otherScreen();
-  $('lnkScreenInfo').textContent = !screenInfo ? 'Links open in a new browser tab.'
-    : o ? 'Links open in a new browser tab (screen placement is controlled by your browser).'
-    : 'Links open in a new browser tab.';
-  $('lnkScreen').textContent = screenInfo ? 'Re-detect screens' : 'Open links on my other screen';
-}
-$('lnkScreen').onclick = async () => {
-  const ok = await loadScreens();
-  if(!ok) $('lnkStatus').textContent = 'Screen access is not needed for browser tabs.';
-  refreshScreenUI();
-};
 
 /* Opens the address in a pop-up window sized to 85% of the target screen. Returns false if the browser blocked it. */
 function openAway(url){
@@ -1458,7 +1403,6 @@ function addLink(){
 $('lnkAdd').onclick = addLink;
 [$('lnkUrl'), $('lnkName')].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') addLink(); }));
 renderLinks();
-refreshScreenUI();
 
 /* ============ System media controller (Linux MPRIS bridge) ============ */
 const MEDIA_BRIDGE = 'http://127.0.0.1:8765';
@@ -1543,14 +1487,6 @@ addEventListener('keydown', e => {
     if(i >= 0 && i < links.length){ e.preventDefault(); launch(links[i]); }
   }
 });
-if('getScreenDetails' in window && navigator.permissions){
-  /* permission already granted earlier? then pick up the screens silently (the permission was renamed once, so try both names) */
-  navigator.permissions.query({name: 'window-management'})
-    .catch(() => navigator.permissions.query({name: 'window-placement'}))
-    .then(pm => { if(pm.state === 'granted') loadScreens().then(refreshScreenUI); })
-    .catch(() => {});
-}
-
 /* ============ World clock ============ */
 const WC_KEY = 'dockWorldClocks';
 let worldClocks = store.get(WC_KEY, []);
