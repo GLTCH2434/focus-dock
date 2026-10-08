@@ -67,6 +67,8 @@ body.idle .bar{opacity:0;pointer-events:none}
 @media (max-aspect-ratio:1/1){.dock{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);padding-top:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px));padding-bottom:calc(clamp(40px,7vmin,56px) + clamp(18px,4vmin,40px))}}
 
 .clock{align-self:center;min-width:0}
+/* Keep the main time flush with the left edge on wide layouts. */
+@media (min-aspect-ratio:1/1){.clock{margin-left:calc(-1 * clamp(14px,4vmin,44px));}}
 .time{font-size:clamp(56px,25vmin,280px);font-weight:200;letter-spacing:-.045em;
   line-height:.95;font-variant-numeric:tabular-nums;cursor:pointer;user-select:none;
   text-shadow:0 4px 40px rgba(10,15,28,.35)}
