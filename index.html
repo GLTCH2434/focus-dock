@@ -1208,29 +1208,23 @@ function refreshScreenUI(){
   if(!('getScreenDetails' in window)){ row.hidden = true; return; }   // this browser can't choose a screen
   row.hidden = false;
   const o = otherScreen();
-  $('lnkScreenInfo').textContent = !screenInfo ? 'Links open in a pop-up window on this screen.'
-    : o ? 'Links open on: ' + (o.label || (o.isPrimary ? 'your main screen' : 'your other screen'))
-    : 'Only one screen found, so links open on this screen.';
+  $('lnkScreenInfo').textContent = !screenInfo ? 'Links open in a new browser tab.'
+    : o ? 'Links open in a new browser tab (screen placement is controlled by your browser).
+    : 'Links open in a new browser tab.';
   $('lnkScreen').textContent = screenInfo ? 'Re-detect screens' : 'Open links on my other screen';
 }
 $('lnkScreen').onclick = async () => {
   const ok = await loadScreens();
-  if(!ok) $('lnkStatus').textContent = 'Screen access was not allowed, so links open on this screen.';
+  if(!ok) $('lnkStatus').textContent = 'Screen access is not needed for browser tabs.';
   refreshScreenUI();
 };
 
 /* Opens the address in a pop-up window sized to 85% of the target screen. Returns false if the browser blocked it. */
 function openAway(url){
-  const t = otherScreen();                   // null means: same screen as the dock
-  const aw = t ? t.availWidth : screen.availWidth, ah = t ? t.availHeight : screen.availHeight;
-  const w = Math.round(aw * 0.85), h = Math.round(ah * 0.85);
-  const left = Math.round((t ? t.availLeft : (screen.availLeft || 0)) + (aw - w) / 2);
-  const top  = Math.round((t ? t.availTop  : (screen.availTop  || 0)) + (ah - h) / 2);
-  /* a named window ('dock-links') is reused for every link; '_blank' makes a new one each time */
-  const win = window.open(url, REUSE_LINK_WINDOW ? 'dock-links' : '_blank', 'popup,width=' + w + ',height=' + h + ',left=' + left + ',top=' + top);
+  /* Open links as normal browser tabs instead of popup windows. */
+  const win = window.open(url, '_blank');
   if(!win) return false;
-  try{ win.opener = null; }catch(e){}        // the opened site gets no handle back to the dock
-  win.focus();
+  try{ win.opener = null; }catch(e){}
   return true;
 }
 
