@@ -186,21 +186,31 @@ select option{color:#111}
 
 /* Shortcuts help panel */
 #helpPanel{position:fixed;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:20px;
-  display:none;flex-direction:column;gap:16px;background:rgba(18,24,44,.55);animation:popc .22s ease-out}
+  width:min(680px,calc(100vw - 24px));max-height:min(720px,calc(100vh - 48px));overflow:auto;padding:24px;
+  display:none;flex-direction:column;gap:20px;background:rgba(18,24,44,.72);
+  border:1px solid rgba(255,255,255,.18);box-shadow:0 24px 80px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.12);
+  animation:popc .22s ease-out}
 #helpPanel.open{display:flex}
-/* Same pop-in as the other panels, but it keeps the centring transform so the panel doesn't jump */
 @keyframes popc{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}}
-.lhead{display:flex;justify-content:space-between;align-items:center;font-size:14px}
-.lhead b{font-weight:600}
-.lhead button{font-size:13px;opacity:.7;padding:4px 12px;border-radius:10px;background:none;border:1px solid var(--edge);color:var(--ink);cursor:pointer}
-.lhead button:hover{opacity:1;background:rgba(255,255,255,.12)}
-.key{position:absolute;top:4px;left:8px;min-width:1.7em;padding:.1em .4em;border-radius:6px;text-align:center;
-  font-family:inherit;font-size:11px;font-weight:600;line-height:1.5;color:var(--ink);
-  background:rgba(255,255,255,.14);border:1px solid var(--edge);pointer-events:none}
-.lhead small{margin:0 auto 0 10px;font-size:12px;opacity:.55}
-/* Help panel: key badges sit inline next to their description instead of floating on top */
-#helpGrid .key{position:static;flex:none;white-space:nowrap}
+#helpPanel .lhead{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--edge)}
+#helpPanel .lhead b{font-size:18px;font-weight:600;letter-spacing:-.02em}
+#helpPanel .lhead small{margin:0 auto 0 0;font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase}
+#helpPanel .lhead button{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;font-size:14px;opacity:.7;
+  padding:0;background:rgba(255,255,255,.05);border:1px solid var(--edge);color:var(--ink);cursor:pointer}
+#helpPanel .lhead button:hover{opacity:1;background:rgba(255,255,255,.12)}
+#helpGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#helpGrid > div{display:flex;align-items:center;gap:12px;min-height:58px;padding:10px 12px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.11);border-radius:14px;
+  transition:background .15s,border-color .15s,transform .15s}
+#helpGrid > div:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
+#helpGrid .key{position:static;flex:none;min-width:46px;padding:.45em .65em;border-radius:9px;text-align:center;
+  font-family:inherit;font-size:11px;font-weight:600;line-height:1.2;color:var(--ink);
+  background:rgba(255,255,255,.09);border:1px solid var(--edge);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 3px 8px rgba(0,0,0,.15);pointer-events:none}
+#helpGrid span{font-size:12px;line-height:1.35;color:var(--dim)}
+@media (max-width:560px){
+  #helpPanel{padding:18px;width:min(520px,calc(100vw - 20px))}
+  #helpGrid{grid-template-columns:1fr}
+}
 /* Quick links: the grid the tiles live in */
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
 .tile{position:relative;border-radius:16px;min-width:0}
@@ -391,8 +401,8 @@ select option{color:#111}
 
 <!-- Shortcuts help panel -->
 <aside id="helpPanel" class="glass" aria-label="Keyboard shortcuts">
-  <div class="lhead"><b>Keyboard shortcuts</b><button id="helpClose" aria-label="Close">✕</button></div>
-  <div class="lgrid" id="helpGrid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px"></div>
+  <div class="lhead"><b>Keyboard shortcuts</b><small>Quick reference</small><button id="helpClose" aria-label="Close">✕</button></div>
+  <div class="lgrid" id="helpGrid"></div>
 </aside>
 
 <!-- Meeting alert banner -->
@@ -429,21 +439,10 @@ function renderHelp(){
   const grid = $('helpGrid'); grid.innerHTML = '';
   SHORTCUTS.forEach(([key, desc]) => {
     const box = document.createElement('div');
-    box.style.display = 'flex';
-    box.style.alignItems = 'center';
-    box.style.gap = '10px';
-    box.style.padding = '8px 10px';
-    box.style.background = 'rgba(255,255,255,.05)';
-    box.style.borderRadius = '10px';
-    box.style.border = '1px solid var(--edge)';
     const kb = document.createElement('kbd');
     kb.className = 'key';
-    kb.style.minWidth = 'unset';
-    kb.style.padding = '.2em .6em';
     kb.textContent = key;
     const sp = document.createElement('span');
-    sp.style.fontSize = '13px';
-    sp.style.color = 'var(--dim)';
     sp.textContent = desc;
     box.append(kb, sp);
     grid.append(box);
