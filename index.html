@@ -73,10 +73,10 @@ body.idle .bar{opacity:0;pointer-events:none}
   text-shadow:0 4px 40px rgba(10,15,28,.35)}
 .time small{font-size:.22em;letter-spacing:0;font-weight:300;color:var(--dim);margin-left:.25em}
 .date{margin-top:1.2vmin;font-size:clamp(14px,3.6vmin,34px);font-weight:300;color:var(--dim)}
-.world-clock{display:none;margin:0 0 clamp(8px,1.2vmin,14px) calc(-1 * clamp(14px,4vmin,44px));align-items:center;gap:10px;color:var(--dim);font-size:clamp(10px,1.7vmin,16px);font-weight:300;line-height:1.15;opacity:.9}
+.world-clock{display:none;margin:0 0 clamp(8px,1.2vmin,14px);align-items:center;gap:10px;color:var(--dim);font-size:clamp(12px,2vmin,18px);font-weight:300;line-height:1.15;opacity:.9}
 .world-clock.show{display:flex}
 .world-clock .wc-city{color:var(--ink);font-size:.85em;font-weight:400;opacity:.8}
-.world-clock .wc-time{font-size:1.15em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.world-clock .wc-time{font-size:1.2em;font-variant-numeric:tabular-nums;color:var(--ink)}
 .wc-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .wc-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--edge);border-radius:12px;background:rgba(255,255,255,.045)}
 .wc-item .wc-meta{flex:1;min-width:0}
@@ -94,7 +94,7 @@ body.idle .bar{opacity:0;pointer-events:none}
 .wc-suggestion small{color:var(--dim);font-size:9px;white-space:nowrap}
 .wc-empty{padding:9px 10px;color:var(--dim);font-size:11px}
 .wc-hint{font-size:11px;color:var(--dim);line-height:1.4}
-@media (max-width:560px){.world-clock{margin-left:0}}
+
 
 /* ---------- Glass panels (notes + noise player) ---------- */
 .glass{background:var(--glass);border:1px solid var(--edge);border-radius:clamp(18px,3.5vmin,32px);
@@ -198,11 +198,11 @@ select option{color:#111}
 .calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
 .status.bad{color:#ff8fab}
 /* Media controller: same glass language as the Favorites button. */
-.media-controls{position:fixed;z-index:3;left:calc(clamp(10px,2.5vmin,26px) + clamp(40px,7vmin,56px) + 8px);bottom:clamp(10px,2.5vmin,26px);
+.media-controls{position:fixed;z-index:3;left:calc(clamp(14px,4vmin,44px) + (100vw - 2 * clamp(14px,4vmin,44px) - clamp(12px,3vmin,32px)) * .287234);bottom:clamp(10px,2.5vmin,26px);transform:translateX(-50%) translateY(5px);
   display:none;align-items:center;gap:9px;width:min(430px,calc(100vw - 20px));height:clamp(40px,7vmin,56px);box-sizing:border-box;padding:5px 7px 5px 5px;
   border-radius:999px;background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   box-shadow:none;overflow:hidden;opacity:0;transform:translateY(5px);transition:opacity .2s ease,transform .2s ease}
-.media-controls.show{display:flex;opacity:1;transform:none}
+.media-controls.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
 .media-controls .m-art-wrap{position:relative;width:calc(clamp(40px,7vmin,56px) - 10px);height:calc(clamp(40px,7vmin,56px) - 10px);min-width:30px;min-height:30px;flex:none;
   display:grid;place-items:center;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.07);border:1px solid var(--edge)}
 .media-controls .m-art{grid-area:1/1;width:100%;height:100%;object-fit:cover;display:none}
@@ -224,7 +224,7 @@ select option{color:#111}
 .media-controls .m-btn:active{transform:scale(.94)}
 .media-controls .m-btn.play{background:var(--glass);border-color:var(--edge)}
 .media-controls .m-btn svg{width:48%;height:48%;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-@media (max-width:560px){.media-controls{left:calc(clamp(10px,2.5vmin,26px) + clamp(40px,7vmin,56px) + 8px);right:10px;width:auto;max-width:none}
+@media (max-width:560px){.media-controls{left:50%;right:auto;width:min(430px,calc(100vw - 20px));max-width:none}
   .media-controls .m-meta{max-width:30vw}.media-controls .m-art-wrap{width:34px;height:34px}.media-controls .m-btn{width:40px;height:40px;min-width:40px}.media-controls .m-actions{gap:4px}}
 /* Quick links: bottom-left button + popup panel */
 .bar.bl{top:auto;bottom:clamp(10px,2.5vmin,26px)}      /* same look as the menu button, but in the bottom-left corner */
