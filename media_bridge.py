@@ -30,12 +30,19 @@ def run_playerctl(*args):
 
 
 def active_player():
+    # Prefer a currently playing player, but keep paused players available so
+    # the controller remains visible after the user pauses playback.
     rows = run_playerctl("-a", "metadata", "--format", "{{playerName}}\t{{status}}").splitlines()
+    paused = None
     for row in rows:
         player, _, status = row.partition("\t")
-        if status.strip().lower() == "playing":
-            return player.strip()
-    return None
+        player = player.strip()
+        status = status.strip().lower()
+        if status == "playing":
+            return player
+        if status == "paused" and paused is None:
+            paused = player
+    return paused
 
 
 def status_payload():
@@ -57,6 +64,7 @@ def status_payload():
     except ValueError:
         position_us = 0
     return {
+        "active": status.lower() in {"playing", "paused"},
         "playing": status.lower() == "playing",
         "player": player,
         "artist": artist,
@@ -114,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         player = active_player()
         if not player:
-            self._send({"ok": False, "error": "no playing player"}, 409)
+            self._send({"ok": False, "error": "no active player"}, 409)
             return
         try:
             subprocess.run(
