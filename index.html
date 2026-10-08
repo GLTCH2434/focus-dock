@@ -126,8 +126,8 @@ select option{color:#111}
 .status{font-size:12px;color:var(--dim);min-height:1.2em}
 
 /* Tabs inside the menu + the panes they switch between */
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.tabs button{padding:10px 0;border-radius:12px;border:1px solid var(--edge);font-size:13px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{flex:1 1 auto;padding:10px 12px;border-radius:12px;border:1px solid var(--edge);font-size:13px}
 .tabs button.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .pane{display:flex;flex-direction:column;gap:16px}
 .pane[hidden]{display:none}   /* needed because .pane sets its own display */
@@ -219,6 +219,26 @@ select option{color:#111}
 .agenda{max-height:45vh;overflow-y:auto}
 .agenda li.head{font-size:.75em;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin-top:.5em}
 .agenda li.past{opacity:.4}
+/* Weather line under the date */
+.wx{margin-top:.8vmin;font-size:clamp(13px,2.8vmin,24px);font-weight:300;color:var(--dim);cursor:pointer}
+.wx:hover{color:var(--ink)}
+.wxres{display:flex;flex-direction:column;gap:6px}
+.wxres button{text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--edge);font-size:13px}
+.wxres button:hover{background:rgba(255,255,255,.1)}
+#wxCity{padding:.8em 1em;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);
+  border:1px solid var(--edge);font-family:inherit;font-weight:300;font-size:14px}
+/* "Join" button on agenda lines that have a video link */
+.joinbtn{flex:none;margin-left:auto;padding:.1em .8em;border-radius:999px;border:1px solid var(--b2);color:var(--b2);font-size:.8em}
+.joinbtn:hover{background:var(--b2);color:#04211e}
+/* Meeting alert banner (slides in at the top, pulses until dismissed) */
+#alertBanner{position:fixed;z-index:6;top:clamp(10px,2.5vmin,26px);left:50%;transform:translateX(-50%);
+  display:none;align-items:center;gap:14px;padding:14px 20px;max-width:calc(100vw - 24px);
+  background:rgba(18,24,44,.75);border-color:var(--b2);animation:alertpulse 1.6s ease-in-out infinite}
+#alertBanner.show{display:flex}
+#alertBanner span{font-size:clamp(14px,2.6vmin,20px)}
+#alertBanner button{flex:none;padding:8px 16px;border-radius:12px;border:1px solid var(--edge);font-size:13px}
+#alertBanner .go{background:var(--b2);color:#04211e;border-color:var(--b2);font-weight:600}
+@keyframes alertpulse{0%{box-shadow:0 0 0 0 rgba(25,195,177,.55)}60%,100%{box-shadow:0 0 0 14px rgba(25,195,177,0)}}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -245,6 +265,7 @@ select option{color:#111}
     <!-- Click the time to switch between 12h and 24h -->
     <div class="time" id="time" title="Click to switch 12h / 24h"><span id="hm">--:--</span><small id="sec"></small><small id="ampm"></small></div>
     <div class="date" id="date"></div>
+    <div class="wx" id="wx" title="Weather settings"></div>
     <!-- Shows while a focus session is running. Tap it to open the Focus tab. -->
     <button class="pill" id="pill" hidden><span id="pillText"></span></button>
     <ul class="agenda" id="agenda"></ul>
@@ -270,7 +291,7 @@ select option{color:#111}
 <!-- One menu for everything: tabs switch between Focus timer, White noise and Blob colours -->
 <aside id="menuPanel" class="glass" aria-label="Dock menu">
   <div class="tabs" id="tabs">
-    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button>
+    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button><button data-tab="weather">Weather</button>
   </div>
 
   <section class="pane" data-pane="focus">
@@ -311,11 +332,27 @@ select option{color:#111}
   <button class="ghost" id="resetColors">Reset to Aurora</button>
 </section>
 
+  <section class="pane" data-pane="weather" hidden>
+    <div class="row">Weather comes from Open-Meteo (free, no account). Search for a city, or use your current location. Only the place's coordinates are sent.</div>
+    <input type="text" id="wxCity" placeholder="City, e.g. Belagavi" autocomplete="off">
+    <div class="frow"><button class="play" id="wxSearch">Search</button><button class="ghost" id="wxHere">Use my location</button></div>
+    <div class="wxres" id="wxRes"></div>
+    <div class="types" id="wxUnits"><button data-u="c">&deg;C</button><button data-u="f">&deg;F</button></div>
+    <div class="status" id="wxStatus"></div>
+  </section>
+
   <section class="pane" data-pane="cal" hidden>
     <div class="row">Shows today's and tomorrow's events and tasks from your Google Calendar and Google Tasks on the dock. Read-only: the dock can never change them.</div>
     <button class="play" id="calBtn">Connect Google Calendar</button>
     <div class="status" id="calStatus"></div>
     <div class="status" id="calInfo"></div>
+    <label class="row">Meeting alert
+      <select id="alertMins">
+        <option value="0">Off</option><option value="1">1 minute before</option><option value="2">2 minutes before</option>
+        <option value="5">5 minutes before</option><option value="10">10 minutes before</option>
+      </select></label>
+    <button class="ghost" id="alertTest">Test the alert</button>
+    <div class="status">Press J any time to join the current or next meeting that has a video link.</div>
   </section>
 
   </aside>
@@ -342,6 +379,13 @@ select option{color:#111}
   <div class="lgrid" id="helpGrid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px"></div>
 </aside>
 
+<!-- Meeting alert banner -->
+<div id="alertBanner" class="glass" role="alert">
+  <span id="alertText"></span>
+  <button class="go" id="alertJoin">Join (J)</button>
+  <button id="alertClose">Dismiss</button>
+</div>
+
 <script src="config.js"></script>
 <script>
 /* ============ Helpers ============ */
@@ -353,6 +397,8 @@ const SHORTCUTS = [
   ['F', 'Toggle fullscreen'],
   ['Q', 'Toggle quick links'],
   ['S', 'Toggle settings'],
+  ['N', 'Jump to the note box (Esc to leave it)'],
+  ['J', 'Join the current or next meeting'],
   ['Esc', 'Close any open panel'],
   ['Click time', 'Toggle 12h / 24h'],
   ['Click note', 'Mark complete / incomplete'],
@@ -662,7 +708,7 @@ function showTab(t){
   store.set('dockTab', t);
 }
 function openMenu(tab){
-  closeLinks();                      // only one popup open at a time
+  closeLinks(); closeHelp();   // only one popup open at a time
   if(tab) showTab(tab);
   $('menuPanel').classList.add('open'); $('menuBtn').setAttribute('aria-expanded', 'true');
 }
@@ -678,7 +724,7 @@ document.addEventListener('click', e => {
   if(!e.target.closest('#helpPanel')) closeHelp();
 });
 const savedTab = store.get('dockTab', 'focus');
-showTab(['focus', 'noise', 'colors', 'cal'].includes(savedTab) ? savedTab : 'focus');
+showTab(['focus', 'noise', 'colors', 'cal', 'weather'].includes(savedTab) ? savedTab : 'focus');
 
 /* ============ Google Calendar + Tasks (read-only) ============
    Uses Google's sign-in popup, then asks the Calendar and Tasks APIs for today's and
@@ -706,6 +752,16 @@ function gDone(){ clearTimeout(gTimer); gMsg = ''; }   // call when Google has a
 const tm = d => d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', hour12: !use24});
 const sameDay = (a, b) => a.toDateString() === b.toDateString();
 const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');   // e.g. 2026-10-07
+
+/* Finds the video-call link of an event (Google Meet, or Zoom/Teams when the invite adds them) */
+function meetLink(e){
+  let u = e.hangoutLink;
+  if(!u && e.conferenceData && e.conferenceData.entryPoints){
+    const v = e.conferenceData.entryPoints.find(p => p.entryPointType === 'video');
+    u = v && v.uri;
+  }
+  return u && /^https:\/\//i.test(u) ? u : '';        // only https links are used
+}
 
 /* Load Google's sign-in script (once, even if asked for several times) */
 let gsiQueue = null;
@@ -786,7 +842,8 @@ async function refreshCal(){
             allDay: !!e.start.date,
             start: new Date(e.start.dateTime || e.start.date + 'T00:00:00'),   // date-only = all-day, local midnight
             end: new Date(e.end.dateTime || e.end.date + 'T00:00:00'),
-            color: c.backgroundColor
+            color: c.backgroundColor,
+            meet: meetLink(e)
           })))
         .catch(() => [])));                                              // one broken calendar doesn't break the rest
     gEvents = lists.flat().sort((a, b) => a.start - b.start);
@@ -832,7 +889,11 @@ function renderAgenda(){
       const isNow = e.start <= now && e.end > now, past = e.end <= now;
       const cls = isNow ? 'now' : past ? 'past' : (!firstNext ? 'next' : '');
       if(!isNow && !past) firstNext = true;
-      add(e.allDay ? 'All day' : tm(e.start), e.title, cls, e.color);
+      const li = add(e.allDay ? 'All day' : tm(e.start), e.title, cls, e.color);
+      if(e.meet && !past){                                       // a Join button for events with a video link
+        const j = document.createElement('button'); j.className = 'joinbtn'; j.textContent = 'Join';
+        j.onclick = () => joinUrl(e.meet); li.append(j);
+      }
     });
     tasks.forEach(t => add('☐ Task', t.title + (t.due < ymd(s) ? ' (overdue)' : ''), ''));
     if(!evs.length && !tasks.length) add('', 'Nothing planned', 'past');
@@ -863,6 +924,150 @@ setInterval(() => { renderAgenda(); if(gWasOn && gcalReady && Date.now() >= gNex
 if(gcalReady) loadGsi(initGcalClient);   // warm up now, so a later tap can open the popup instantly
 if(gWasOn && gcalReady){ gState = 'reconnect'; gTry = Date.now(); calConnect(); }
 calUI();
+
+/* ============ Meeting alerts + Join ============
+   A banner and a chime appear a few minutes before an event. Events with a video link get a Join button. */
+let alertMins = +store.get('dockAlertMins', 5);
+if(![0, 1, 2, 5, 10].includes(alertMins)) alertMins = 5;
+const alerted = new Set();               // events already announced, so each one only alerts once
+let alertJoinUrl = '', bannerTimer = null;
+
+/* Browsers only allow sound after you have clicked or pressed a key once, so get the audio ready on the first one */
+function armAudio(){
+  try{
+    chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if(chimeCtx.state === 'suspended') chimeCtx.resume();
+  }catch(e){}
+}
+['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, armAudio, {once: true, passive: true}));
+
+function showBanner(text, url, sticky){
+  $('alertText').textContent = text;
+  alertJoinUrl = url || '';
+  $('alertJoin').style.display = url ? '' : 'none';
+  $('alertBanner').classList.add('show');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(hideBanner, sticky ? 120000 : 4000);   // alerts stay 2 minutes; short messages 4 seconds
+}
+function hideBanner(){ $('alertBanner').classList.remove('show'); clearTimeout(bannerTimer); }
+function joinUrl(url){
+  if(openAway(url)) hideBanner();
+  else showBanner('The browser blocked the new window. Allow pop-ups for this site.', '', false);
+}
+$('alertJoin').onclick = () => joinUrl(alertJoinUrl);
+$('alertClose').onclick = hideBanner;
+
+/* Every 15 seconds: is any event about to start? */
+function checkAlerts(){
+  if(!alertMins || gState !== 'ok') return;
+  const now = Date.now();
+  gEvents.forEach(ev => {
+    if(ev.allDay) return;
+    const key = ev.start.getTime() + '|' + ev.title;
+    const until = ev.start.getTime() - now;                          // ms until it starts
+    if(alerted.has(key) || until > alertMins * 60000 || until < -60000) return;   // too early, or started over a minute ago
+    alerted.add(key);
+    const m = Math.max(0, Math.ceil(until / 60000));
+    chime();
+    showBanner(ev.title + (m ? ' starts in ' + m + ' min' : ' is starting now'), ev.meet, true);
+  });
+}
+setInterval(checkAlerts, 15000);
+
+/* J: join the running meeting, or the next one starting within 15 minutes, that has a video link */
+function joinNext(){
+  const now = Date.now();
+  const ev = gEvents.filter(x => x.meet && !x.allDay && x.end.getTime() > now && x.start.getTime() - now <= 15 * 60000)
+                    .sort((a, b) => a.start - b.start)[0];
+  if(ev) joinUrl(ev.meet);
+  else showBanner(gState === 'ok' ? 'No meeting with a video link in the next 15 minutes.' : 'Connect Google Calendar first (Settings, Calendar tab).', '', false);
+}
+$('alertMins').value = String(alertMins);
+$('alertMins').onchange = () => { alertMins = +$('alertMins').value; store.set('dockAlertMins', alertMins); };
+$('alertTest').onclick = () => { armAudio(); chime(); showBanner('Test meeting starts in 5 min', 'https://meet.google.com/', true); };
+
+/* ============ Weather (Open-Meteo: free, no account) ============
+   Pick a place once. The dock then shows the temperature and today's high/low under the date. */
+let wxPlace = store.get('dockWeather', null);       // {name, lat, lon}, or null until you choose a place
+let wxUnit = store.get('dockWxUnit', 'c');          // 'c' or 'f'
+let wxData = null, wxNext = 0;
+if(wxUnit !== 'c' && wxUnit !== 'f') wxUnit = 'c';
+if(wxPlace && !(typeof wxPlace.lat === 'number' && typeof wxPlace.lon === 'number')) wxPlace = null;
+
+/* Open-Meteo gives a weather code number; this turns it into an icon and a few words */
+function wxLook(c){
+  if(c === 0) return ['\u2600\uFE0F', 'Clear'];
+  if(c === 1) return ['\uD83C\uDF24\uFE0F', 'Mostly clear'];
+  if(c === 2) return ['\u26C5', 'Partly cloudy'];
+  if(c === 3) return ['\u2601\uFE0F', 'Overcast'];
+  if(c === 45 || c === 48) return ['\uD83C\uDF2B\uFE0F', 'Fog'];
+  if(c >= 51 && c <= 57) return ['\uD83C\uDF26\uFE0F', 'Drizzle'];
+  if((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return ['\uD83C\uDF27\uFE0F', 'Rain'];
+  if((c >= 71 && c <= 77) || c === 85 || c === 86) return ['\uD83C\uDF28\uFE0F', 'Snow'];
+  if(c >= 95) return ['\u26C8\uFE0F', 'Thunderstorm'];
+  return ['\uD83C\uDF21\uFE0F', 'Weather'];
+}
+function renderWx(){
+  const el = $('wx');
+  if(!wxPlace){ el.textContent = 'Set up weather'; return; }
+  if(!wxData){ el.textContent = wxPlace.name; return; }
+  const [icon, words] = wxLook(wxData.code), r = Math.round;
+  el.textContent = icon + ' ' + r(wxData.t) + '\u00B0 \u00B7 ' + words + ' \u00B7 H ' + r(wxData.hi) + '\u00B0 L ' + r(wxData.lo) + '\u00B0';
+}
+async function refreshWx(){
+  if(!wxPlace){ renderWx(); return; }
+  try{
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + wxPlace.lat + '&longitude=' + wxPlace.lon
+      + '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto'
+      + (wxUnit === 'f' ? '&temperature_unit=fahrenheit' : ''));
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    wxData = {t: j.current.temperature_2m, code: j.current.weather_code, hi: j.daily.temperature_2m_max[0], lo: j.daily.temperature_2m_min[0]};
+    wxNext = Date.now() + 30 * 60000;                                // refresh every 30 minutes
+    $('wxStatus').textContent = 'Using ' + wxPlace.name + '. Updated ' + tm(new Date());
+  }catch(e){ wxNext = Date.now() + 5 * 60000; $('wxStatus').textContent = "Couldn't load the weather (" + e.message + "), retrying."; }
+  renderWx();
+}
+function setPlace(p){
+  wxPlace = p; wxData = null; store.set('dockWeather', p);
+  $('wxRes').innerHTML = ''; $('wxStatus').textContent = 'Using ' + p.name; renderWx(); refreshWx();
+}
+/* Search by city name, then pick from up to 5 matches */
+async function wxSearch(){
+  const q = $('wxCity').value.trim(); if(!q) return;
+  $('wxStatus').textContent = 'Searching...';
+  try{
+    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json');
+    const j = await r.json();
+    const box = $('wxRes'); box.innerHTML = '';
+    (j.results || []).forEach(pl => {
+      const b = document.createElement('button');
+      b.textContent = [pl.name, pl.admin1, pl.country].filter(Boolean).join(', ');     // textContent: no HTML injection
+      b.onclick = () => setPlace({name: pl.name, lat: pl.latitude, lon: pl.longitude});
+      box.append(b);
+    });
+    $('wxStatus').textContent = (j.results && j.results.length) ? 'Pick your place:' : 'No place found. Try another spelling.';
+  }catch(e){ $('wxStatus').textContent = "Couldn't search (" + e.message + ")."; }
+}
+$('wxSearch').onclick = wxSearch;
+$('wxCity').addEventListener('keydown', e => { if(e.key === 'Enter') wxSearch(); });
+$('wxHere').onclick = () => {
+  if(!navigator.geolocation){ $('wxStatus').textContent = "This browser can't find your location."; return; }
+  $('wxStatus').textContent = 'Asking for your location...';
+  navigator.geolocation.getCurrentPosition(
+    pos => setPlace({name: 'Your location', lat: +pos.coords.latitude.toFixed(2), lon: +pos.coords.longitude.toFixed(2)}),   // rounded to about 1 km
+    () => { $('wxStatus').textContent = 'Location was not allowed. Search for a city instead.'; },
+    {timeout: 10000});
+};
+function syncUnits(){ document.querySelectorAll('#wxUnits button').forEach(b => b.classList.toggle('sel', b.dataset.u === wxUnit)); }
+$('wxUnits').onclick = e => {
+  const u = e.target.dataset.u; if(!u) return;
+  wxUnit = u; store.set('dockWxUnit', u); syncUnits(); wxData = null; refreshWx();
+};
+$('wx').onclick = () => openMenu('weather');
+syncUnits();
+setInterval(() => { if(wxPlace && Date.now() >= wxNext) refreshWx(); }, 60000);
+refreshWx();
 
 /* ============ Month calendar ============
    A plain month grid with today highlighted. Arrows change month; clicking the
@@ -1024,7 +1229,7 @@ function renderLinks(){
   grid.append(add);
 }
 /* open / close the panel, and the Edit toggle (shows red x buttons so links can be removed) */
-function openLinks(){ closeMenu(); $('linksPanel').classList.add('open'); $('linksBtn').setAttribute('aria-expanded', 'true'); }
+function openLinks(){ closeMenu(); closeHelp(); $('linksPanel').classList.add('open'); $('linksBtn').setAttribute('aria-expanded', 'true'); }
 function closeLinks(){
   $('linksPanel').classList.remove('open', 'editing'); $('lnkEdit').textContent = 'Edit';
   $('lform').hidden = true; $('lnkStatus').textContent = ''; $('linksBtn').setAttribute('aria-expanded', 'false');
@@ -1054,6 +1259,12 @@ addEventListener('keydown', e => {
   const linksOpen = $('linksPanel').classList.contains('open');
   if(k === 'q'){ e.preventDefault(); linksOpen ? closeLinks() : openLinks(); return; }
   if(k === 's'){ e.preventDefault(); $('menuPanel').classList.contains('open') ? closeMenu() : openMenu(); return; }
+  if(k === 'n'){ e.preventDefault(); closeMenu(); closeLinks(); closeHelp(); $('newNote').focus(); return; }   // type a note straight away
+  if(k === 'j'){                                                    // join the meeting in the banner, or the next one
+    e.preventDefault();
+    if($('alertBanner').classList.contains('show') && alertJoinUrl) joinUrl(alertJoinUrl); else joinNext();
+    return;
+  }
   if(linksOpen && !$('linksPanel').classList.contains('editing')){      // not while editing (red x mode)
     const i = LINK_KEYS.indexOf(k);
     if(i >= 0 && i < links.length){ e.preventDefault(); launch(links[i]); }
@@ -1078,7 +1289,7 @@ function toggleFs(){
 }
 /* Double-click on empty space (anything that isn't a button, field, panel or event line) */
 addEventListener('dblclick', e => {
-  if(e.target.closest('button, input, select, textarea, label, a, .glass, .agenda')) return;
+  if(e.target.closest('button, input, select, textarea, label, a, .glass, .agenda, .wx')) return;
   getSelection().removeAllRanges();                            // clear any text the double-click highlighted
   toggleFs();
 });
@@ -1096,12 +1307,12 @@ let idleTimer;
 function wakeUI(){
   document.body.classList.remove('idle'); clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
-    const busy = $('menuPanel').classList.contains('open') || $('linksPanel').classList.contains('open') || document.activeElement === $('newNote');
+    const busy = $('helpPanel').classList.contains('open') || $('menuPanel').classList.contains('open') || $('linksPanel').classList.contains('open') || document.activeElement === $('newNote');
     if(!busy) document.body.classList.add('idle'); else wakeUI();
   }, 5000);
 }
 ['mousemove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wakeUI, {passive:true}));
-addEventListener('keydown', e => { if(e.key === 'Escape'){ closeMenu(); closeLinks(); closeHelp(); } });
+addEventListener('keydown', e => { if(e.key === 'Escape'){ closeMenu(); closeLinks(); closeHelp(); hideBanner(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); } });
 wakeUI();
 tick();   // first draw of the clock (done last so everything above is ready)
 
