@@ -148,6 +148,13 @@ select option{color:#111}
 .agenda li b{font-weight:400;font-variant-numeric:tabular-nums;min-width:5.4em}
 .agenda li span{overflow:hidden;text-overflow:ellipsis}
 .agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.agenda li.has-location{position:relative;cursor:help}
+.agenda .event-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);z-index:20;display:none;width:max-content;max-width:min(420px,70vw);padding:8px 10px;border:1px solid var(--edge);border-radius:9px;background:rgba(18,24,44,.94);color:var(--ink);font-size:.72em;font-weight:400;line-height:1.35;white-space:normal;box-shadow:0 8px 24px rgba(0,0,0,.22);pointer-events:auto}
+.agenda li.has-location:hover .event-tip,.agenda li.has-location:focus-within .event-tip{display:flex}
+.event-tip{align-items:center;gap:9px}
+.event-tip .event-location{overflow-wrap:anywhere}
+.event-tip .event-join{flex:none;padding:4px 9px;border-radius:999px;border:1px solid var(--b2);background:transparent;color:var(--b2);font:inherit;cursor:pointer;white-space:nowrap}
+.event-tip .event-join:hover{background:var(--b2);color:#04211e}
 .agenda i{width:.6em;height:.6em;border-radius:50%;flex:none;align-self:center;background:var(--c,#fff)}
 /* Right column: two equal halves, calendar on top, notes below */
 .side{display:flex;flex-direction:column;gap:clamp(12px,3vmin,32px);min-height:0;min-width:0}
@@ -227,9 +234,6 @@ select option{color:#111}
 .wxres button:hover{background:rgba(255,255,255,.1)}
 #wxCity{padding:.8em 1em;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);
   border:1px solid var(--edge);font-family:inherit;font-weight:300;font-size:14px}
-/* "Join" button on agenda lines that have a video link */
-.joinbtn{flex:none;margin-left:auto;padding:.1em .8em;border-radius:999px;border:1px solid var(--b2);color:var(--b2);font-size:.8em}
-.joinbtn:hover{background:var(--b2);color:#04211e}
 /* Meeting alert banner (slides in at the top, pulses until dismissed) */
 #alertBanner{position:fixed;z-index:6;top:clamp(10px,2.5vmin,26px);left:50%;transform:translateX(-50%);
   display:none;align-items:center;gap:14px;padding:14px 20px;max-width:calc(100vw - 24px);
@@ -889,6 +893,7 @@ async function refreshCal(){
             start: new Date(e.start.dateTime || e.start.date + 'T00:00:00'),   // date-only = all-day, local midnight
             end: new Date(e.end.dateTime || e.end.date + 'T00:00:00'),
             color: c.backgroundColor,
+            location: e.location || '',
             meet: meetLink(e)
           })))
         .catch(() => [])));                                              // one broken calendar doesn't break the rest
@@ -933,9 +938,20 @@ function renderAgenda(){
     const tasks = gTasks.filter(t => t.due === ymd(s) || (n === 0 && t.due < ymd(s)));   // today also shows overdue tasks
     evs.forEach(e => {
       const li = add(e.allDay ? 'All day' : tm(e.start), e.title, '', e.color);
-      if(e.meet){                                       // a Join button for events with a video link
-        const j = document.createElement('button'); j.className = 'joinbtn'; j.textContent = 'Join';
-        j.onclick = () => joinUrl(e.meet); li.append(j);
+      if(e.location || e.meet){
+        li.classList.add('has-location');
+        const tip = document.createElement('div'); tip.className = 'event-tip';
+        if(e.location){
+          const loc = document.createElement('span'); loc.className = 'event-location';
+          loc.textContent = '📍 ' + e.location;
+          tip.append(loc);
+        }
+        if(e.meet){
+          const j = document.createElement('button'); j.className = 'event-join'; j.textContent = 'Join';
+          j.onclick = ev => { ev.stopPropagation(); joinUrl(e.meet); };
+          tip.append(j);
+        }
+        li.append(tip);
       }
     });
     tasks.forEach(t => add('☐ Task', t.title + (t.due < ymd(s) ? ' (overdue)' : ''), ''));
