@@ -426,7 +426,6 @@ const SHORTCUTS = [
   ['1-5 (menu open)', 'Focus, Noise, Colours, Calendar, Weather'],
   ['N', 'Jump to the note box (Esc to leave it)'],
   ['J', 'Join the current or next meeting'],
-  ['Esc', 'Close any open panel'],
   ['Click time', 'Toggle 12h / 24h'],
   ['Click note', 'Mark complete / incomplete'],
   ['Enter (in note input)', 'Add note'],
@@ -1444,7 +1443,6 @@ function wakeUI(){
   }, 5000);
 }
 ['mousemove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wakeUI, {passive:true}));
-addEventListener('keydown', e => { if(e.key === 'Escape'){ closeMenu(); closeLinks(); closeHelp(); hideBanner(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); } });
 wakeUI();
 tick();   // first draw of the clock (done last so everything above is ready)
 
