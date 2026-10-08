@@ -215,14 +215,17 @@ select option{color:#111}
 .media-controls .m-artist{font-size:9.5px;color:var(--dim);margin-top:2px}
 .media-controls .m-progress{height:2px;width:100%;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
 .media-controls .m-progress i{display:block;height:100%;width:0;border-radius:inherit;background:var(--b2);transition:width .5s linear}
-.media-controls .m-actions{display:flex;align-items:center;gap:1px;flex:none}
-.media-controls .m-btn{width:32px;height:32px;min-width:32px;padding:0;display:grid;place-items:center;border-radius:50%;color:var(--ink);background:transparent;border:1px solid transparent;box-sizing:border-box;transition:background .15s,border-color .15s,transform .15s}
-.media-controls .m-btn:hover{background:rgba(255,255,255,.12);border-color:var(--edge);transform:none}
+.media-controls .m-actions{display:flex;align-items:center;gap:6px;flex:none}
+/* Media buttons intentionally use the exact same circular treatment as the Favorites/menu buttons. */
+.media-controls .m-btn{width:clamp(40px,7vmin,56px);height:clamp(40px,7vmin,56px);min-width:clamp(40px,7vmin,56px);padding:0;display:grid;place-items:center;border-radius:50%;
+  color:var(--ink);background:var(--glass);border:1px solid var(--edge);box-sizing:border-box;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:background .15s,border-color .15s,transform .15s}
+.media-controls .m-btn:hover{background:rgba(255,255,255,.14);border-color:var(--edge);transform:none}
 .media-controls .m-btn:active{transform:scale(.94)}
-.media-controls .m-btn.play{background:rgba(255,255,255,.08);border-color:var(--edge)}
-.media-controls .m-btn svg{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:2.15;stroke-linecap:round;stroke-linejoin:round}
+.media-controls .m-btn.play{background:var(--glass);border-color:var(--edge)}
+.media-controls .m-btn svg{width:48%;height:48%;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:560px){.media-controls{left:calc(clamp(10px,2.5vmin,26px) + clamp(40px,7vmin,56px) + 8px);right:10px;width:auto;max-width:none}
-  .media-controls .m-meta{max-width:34vw}.media-controls .m-art-wrap{width:34px;height:34px}.media-controls .m-btn{width:30px;height:30px;min-width:30px}.media-controls .m-actions{gap:0}}
+  .media-controls .m-meta{max-width:30vw}.media-controls .m-art-wrap{width:34px;height:34px}.media-controls .m-btn{width:40px;height:40px;min-width:40px}.media-controls .m-actions{gap:4px}}
 /* Quick links: bottom-left button + popup panel */
 .bar.bl{top:auto;bottom:clamp(10px,2.5vmin,26px)}      /* same look as the menu button, but in the bottom-left corner */
 #linksPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
@@ -343,9 +346,9 @@ select option{color:#111}
     <div class="m-progress" aria-hidden="true"><i id="mediaProgress"></i></div>
   </div>
   <div class="m-actions">
-    <button class="m-btn" id="mediaPrev" aria-label="Previous" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-9 6 9 6z"/></svg></button>
+    <button class="m-btn" id="mediaPrev" aria-label="Previous track" title="Previous track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14h2V5H6zm11 0-8 7 8 7V5z"/></svg></button>
     <button class="m-btn play" id="mediaPlay" aria-label="Play or pause" title="Play or pause"><svg viewBox="0 0 24 24"><path d="M9 6v12l10-6z"/></svg></button>
-    <button class="m-btn" id="mediaNext" aria-label="Next" title="Next"><svg viewBox="0 0 24 24"><path d="M6 6l9 6-9 6M18 5v14"/></svg></button>
+    <button class="m-btn" id="mediaNext" aria-label="Next track" title="Next track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14h-2V5h2zM7 5l8 7-8 7V5z"/></svg></button>
   </div>
 </nav>
 
