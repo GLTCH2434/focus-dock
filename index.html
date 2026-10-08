@@ -732,7 +732,7 @@ fRender();
 /* ============ The one menu: open/close + tabs ============ */
 const TAB_NAMES = {focus:'Focus timer', noise:'White noise', colors:'Blob colours', cal:'Google Calendar', weather:'Weather'};
 const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather'];     // order of the round buttons (keys 1 to 5)
-const lastTab = 'focus';                                           // always start on Focus
+let lastTab = 'focus';                                            // current tab for this session; not persisted
 
 /* Keeps the round buttons in step: the open tool's button is highlighted, the menu button shows "expanded" */
 function syncBar(){
@@ -1209,7 +1209,7 @@ function refreshScreenUI(){
   row.hidden = false;
   const o = otherScreen();
   $('lnkScreenInfo').textContent = !screenInfo ? 'Links open in a new browser tab.'
-    : o ? 'Links open in a new browser tab (screen placement is controlled by your browser).
+    : o ? 'Links open in a new browser tab (screen placement is controlled by your browser).'
     : 'Links open in a new browser tab.';
   $('lnkScreen').textContent = screenInfo ? 'Re-detect screens' : 'Open links on my other screen';
 }
