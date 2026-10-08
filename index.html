@@ -515,9 +515,13 @@ function closeHelp(){
 }
 $('helpClose').onclick = closeHelp;
 addEventListener('keydown', e => {
-  if(e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey
+  /* ? is Shift+/ on a normal keyboard; checking code as well makes the shortcut
+     reliable across keyboard layouts/browsers. */
+  const helpKey = e.key === '?' || (e.code === 'Slash' && e.shiftKey);
+  if(helpKey && !e.ctrlKey && !e.metaKey && !e.altKey
      && !e.target.closest('input, textarea, select, [contenteditable]')){
     e.preventDefault();
+    e.stopPropagation();
     $('helpPanel').classList.contains('open') ? closeHelp() : openHelp();
   }
 });
@@ -571,6 +575,12 @@ function renderNotes(){
 }
 function saveNotes(){ store.set('dockNotes', notes); renderNotes(); }
 $('newNote').addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    e.preventDefault();
+    e.stopPropagation();
+    e.target.blur();
+    return;
+  }
   if(e.key === 'Enter' && e.target.value.trim()){ notes.push({t:e.target.value.trim(), done:false}); e.target.value=''; saveNotes(); }
 });
 renderNotes();
