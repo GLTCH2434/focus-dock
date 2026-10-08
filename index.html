@@ -271,8 +271,7 @@ select option{color:#111}
 .agenda li.head b{display:none}
 .agenda li.head span{margin-left:0}
 /* Weather line under the date */
-.wx{margin-top:.8vmin;font-size:clamp(13px,2.8vmin,24px);font-weight:300;color:var(--dim);cursor:pointer}
-.wx:hover{color:var(--ink)}
+.wx{margin-top:.8vmin;font-size:clamp(13px,2.8vmin,24px);font-weight:300;color:var(--dim)}
 .wxres{display:flex;flex-direction:column;gap:6px}
 .wxres button{text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--edge);font-size:13px}
 .wxres button:hover{background:rgba(255,255,255,.1)}
@@ -340,7 +339,7 @@ select option{color:#111}
     <!-- Click the time to switch between 12h and 24h -->
     <div class="time" id="time"><span id="hm">--:--</span><small id="sec"></small><small id="ampm"></small></div>
     <div class="date" id="date"></div>
-    <div class="wx" id="wx" title="Weather settings"></div>
+    <div class="wx" id="wx"></div>
     <!-- Shows while a focus session is running. Tap it to open the Focus tab. -->
     <button class="pill" id="pill" hidden><span id="pillText"></span></button>
     <ul class="agenda" id="agenda"></ul>
@@ -1259,7 +1258,6 @@ $('wxUnits').onclick = e => {
   const u = e.target.dataset.u; if(!u) return;
   wxUnit = u; store.set('dockWxUnit', u); syncUnits(); wxData = null; refreshWx();
 };
-$('wx').onclick = () => openMenu('weather');
 syncUnits();
 setInterval(() => { if(wxPlace && Date.now() >= wxNext) refreshWx(); }, 60000);
 refreshWx();
