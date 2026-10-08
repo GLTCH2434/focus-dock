@@ -43,15 +43,19 @@ def status_payload():
     if not player:
         return {"playing": False}
 
-    fmt = "{{playerName}}\t{{status}}\t{{artist}}\t{{title}}\t{{album}}\t{{mpris:length}}\t{{mpris:artUrl}}"
+    fmt = "{{playerName}}\t{{status}}\t{{artist}}\t{{title}}\t{{album}}\t{{mpris:length}}\t{{position}}\t{{mpris:artUrl}}"
     row = run_playerctl("-p", player, "metadata", "--format", fmt)
-    parts = row.split("\t", 6)
-    parts += [""] * (7 - len(parts))
-    _, status, artist, title, album, length, art = parts[:7]
+    parts = row.split("\t", 7)
+    parts += [""] * (8 - len(parts))
+    _, status, artist, title, album, length, position, art = parts[:8]
     try:
         length_us = int(length or 0)
     except ValueError:
         length_us = 0
+    try:
+        position_us = int(position or 0)
+    except ValueError:
+        position_us = 0
     return {
         "playing": status.lower() == "playing",
         "player": player,
@@ -59,6 +63,7 @@ def status_payload():
         "title": title,
         "album": album,
         "length": length_us,
+        "position": position_us,
         "art": art,
     }
 
