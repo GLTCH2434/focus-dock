@@ -239,6 +239,14 @@ select option{color:#111}
 #alertBanner button{flex:none;padding:8px 16px;border-radius:12px;border:1px solid var(--edge);font-size:13px}
 #alertBanner .go{background:var(--b2);color:#04211e;border-color:var(--b2);font-weight:600}
 @keyframes alertpulse{0%{box-shadow:0 0 0 0 rgba(25,195,177,.55)}60%,100%{box-shadow:0 0 0 14px rgba(25,195,177,0)}}
+/* The menu button spreads out into one round button per tool */
+.bar .sub{visibility:hidden;opacity:0;transform:translateX(-14px) scale(.7);pointer-events:none;
+  transition:opacity .22s,transform .22s,visibility 0s .25s}
+.bar.open .sub{visibility:visible;opacity:1;transform:none;pointer-events:auto;
+  transition-delay:calc(var(--i,0) * 35ms),calc(var(--i,0) * 35ms),0s}      /* each button appears slightly after the last */
+.bar .sub.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#menuBtn.expanded{background:rgba(255,255,255,.18)}
+.ptitle{font-size:15px;font-weight:600}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
 </style>
 </head>
@@ -248,10 +256,15 @@ select option{color:#111}
 <div class="blobs" aria-hidden="true"><div class="blob"></div><div class="blob"></div><div class="blob"></div><div class="blob"></div></div>
 
 <!-- Top-left button: opens the menu (focus, noise, colours, calendar) -->
-<nav class="bar">
-  <button id="menuBtn" aria-label="Open menu" aria-expanded="false" title="Settings (S)">
+<nav class="bar" id="menuBar">
+  <button id="menuBtn" aria-label="Open menu" aria-expanded="false" title="Menu (S)">
     <svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg>
   </button>
+  <button class="sub" data-tab="focus" style="--i:1" aria-label="Focus timer" title="Focus timer (1)"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M9.5 3h5M12 3v3"/></svg></button>
+  <button class="sub" data-tab="noise" style="--i:2" aria-label="White noise" title="White noise (2)"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/></svg></button>
+  <button class="sub" data-tab="colors" style="--i:3" aria-label="Blob colours" title="Blob colours (3)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10.5" r="1"/></svg></button>
+  <button class="sub" data-tab="cal" style="--i:4" aria-label="Google Calendar" title="Google Calendar (4)"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button>
+  <button class="sub" data-tab="weather" style="--i:5" aria-label="Weather" title="Weather (5)"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-7.97A5.5 5.5 0 0 0 7 9.5 4.25 4.25 0 0 0 7 18z"/></svg></button>
 </nav>
 <!-- Bottom-left: quick links button -->
 <nav class="bar bl">
@@ -290,9 +303,7 @@ select option{color:#111}
 
 <!-- One menu for everything: tabs switch between Focus timer, White noise and Blob colours -->
 <aside id="menuPanel" class="glass" aria-label="Dock menu">
-  <div class="tabs" id="tabs">
-    <button data-tab="focus">Focus</button><button data-tab="noise">Noise</button><button data-tab="colors">Colours</button><button data-tab="cal">Calendar</button><button data-tab="weather">Weather</button>
-  </div>
+  <div class="ptitle" id="ptitle"></div>
 
   <section class="pane" data-pane="focus">
     <div class="types" id="fModes">
@@ -396,7 +407,8 @@ const SHORTCUTS = [
   ['?', 'Show this help'],
   ['F', 'Toggle fullscreen'],
   ['Q', 'Toggle quick links'],
-  ['S', 'Toggle settings'],
+  ['S', 'Open or close the menu buttons'],
+  ['1-5 (menu open)', 'Focus, Noise, Colours, Calendar, Weather'],
   ['N', 'Jump to the note box (Esc to leave it)'],
   ['J', 'Join the current or next meeting'],
   ['Esc', 'Close any open panel'],
@@ -702,24 +714,46 @@ $('pill').onclick = () => { if(fReady && !fRunning) $('fStart').onclick(); else 
 fRender();
 
 /* ============ The one menu: open/close + tabs ============ */
+const TAB_NAMES = {focus:'Focus timer', noise:'White noise', colors:'Blob colours', cal:'Google Calendar', weather:'Weather'};
+const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather'];     // order of the round buttons (keys 1 to 5)
+let lastTab = 'focus';                                                // the tool you used last
+
+/* Keeps the round buttons in step: the open tool's button is highlighted, the menu button shows "expanded" */
+function syncBar(){
+  const panelOpen = $('menuPanel').classList.contains('open'), expanded = $('menuBar').classList.contains('open');
+  document.querySelectorAll('#menuBar .sub').forEach(b => b.classList.toggle('sel', panelOpen && b.dataset.tab === lastTab));
+  $('menuBtn').classList.toggle('expanded', expanded);
+  $('menuBtn').setAttribute('aria-expanded', String(expanded));
+}
+/* Puts one tool's content into the panel */
 function showTab(t){
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('sel', b.dataset.tab === t));
+  lastTab = t;
+  $('ptitle').textContent = TAB_NAMES[t] || '';
   document.querySelectorAll('.pane').forEach(p => p.hidden = p.dataset.pane !== t);
-  store.set('dockTab', t);
+  store.set('dockTab', t); syncBar();
 }
+/* Spread the round buttons out, without opening any panel */
+function expandBar(){ closeLinks(); closeHelp(); $('menuBar').classList.add('open'); syncBar(); }
+/* Open one tool's panel (this also spreads the buttons out) */
 function openMenu(tab){
-  closeLinks(); closeHelp();   // only one popup open at a time
-  if(tab) showTab(tab);
-  $('menuPanel').classList.add('open'); $('menuBtn').setAttribute('aria-expanded', 'true');
+  expandBar();
+  showTab(tab || lastTab);
+  $('menuPanel').classList.add('open'); syncBar();
 }
+/* Close the panel AND fold the buttons back into the menu button */
 function closeMenu(){
-  $('menuPanel').classList.remove('open'); $('menuBtn').setAttribute('aria-expanded', 'false');
+  $('menuPanel').classList.remove('open'); $('menuBar').classList.remove('open'); syncBar();
 }
-$('menuBtn').onclick = () => $('menuPanel').classList.contains('open') ? closeMenu() : openMenu();
-$('tabs').onclick = e => { const t = e.target.dataset.tab; if(t) showTab(t); };
+$('menuBtn').onclick = () => $('menuBar').classList.contains('open') ? closeMenu() : expandBar();
+/* Each round button opens its own panel; pressing the same one again closes just the panel */
+document.querySelectorAll('#menuBar .sub').forEach(b => b.onclick = () => {
+  const t = b.dataset.tab;
+  if($('menuPanel').classList.contains('open') && lastTab === t){ $('menuPanel').classList.remove('open'); syncBar(); }
+  else openMenu(t);
+});
 /* Click anywhere outside the menu to close it */
 document.addEventListener('click', e => {
-  if(!e.target.closest('#menuPanel, #menuBtn, #pill')) closeMenu();
+  if(!e.target.closest('#menuPanel, #menuBar, #pill, #wx')) closeMenu();
   if(!e.target.closest('#linksPanel, #linksBtn')) closeLinks();
   if(!e.target.closest('#helpPanel')) closeHelp();
 });
@@ -980,7 +1014,7 @@ function joinNext(){
   const ev = gEvents.filter(x => x.meet && !x.allDay && x.end.getTime() > now && x.start.getTime() - now <= 15 * 60000)
                     .sort((a, b) => a.start - b.start)[0];
   if(ev) joinUrl(ev.meet);
-  else showBanner(gState === 'ok' ? 'No meeting with a video link in the next 15 minutes.' : 'Connect Google Calendar first (Settings, Calendar tab).', '', false);
+  else showBanner(gState === 'ok' ? 'No meeting with a video link in the next 15 minutes.' : 'Connect Google Calendar first (menu, Calendar button).', '', false);
 }
 $('alertMins').value = String(alertMins);
 $('alertMins').onchange = () => { alertMins = +$('alertMins').value; store.set('dockAlertMins', alertMins); };
@@ -1258,7 +1292,8 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   const linksOpen = $('linksPanel').classList.contains('open');
   if(k === 'q'){ e.preventDefault(); linksOpen ? closeLinks() : openLinks(); return; }
-  if(k === 's'){ e.preventDefault(); $('menuPanel').classList.contains('open') ? closeMenu() : openMenu(); return; }
+  if(k === 's'){ e.preventDefault(); $('menuBar').classList.contains('open') ? closeMenu() : openMenu(); return; }
+  if($('menuBar').classList.contains('open') && k >= '1' && k <= '5'){ e.preventDefault(); openMenu(TAB_ORDER[+k - 1]); return; }
   if(k === 'n'){ e.preventDefault(); closeMenu(); closeLinks(); closeHelp(); $('newNote').focus(); return; }   // type a note straight away
   if(k === 'j'){                                                    // join the meeting in the banner, or the next one
     e.preventDefault();
@@ -1308,7 +1343,7 @@ function wakeUI(){
   document.body.classList.remove('idle'); clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
     const busy = $('helpPanel').classList.contains('open') || $('menuPanel').classList.contains('open') || $('linksPanel').classList.contains('open') || document.activeElement === $('newNote');
-    if(!busy) document.body.classList.add('idle'); else wakeUI();
+    if(!busy){ document.body.classList.add('idle'); closeMenu(); } else wakeUI();
   }, 5000);
 }
 ['mousemove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wakeUI, {passive:true}));
