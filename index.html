@@ -149,7 +149,7 @@ select option{color:#111}
 .agenda li b{font-weight:400;font-variant-numeric:tabular-nums;min-width:5.4em}
 .agenda li span{overflow:hidden;text-overflow:ellipsis}
 .agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.agenda li.has-location{cursor:help}
+.agenda li.has-location{cursor:default}
 /* Event details are promoted to a fixed popup so the scrolling agenda cannot clip them. */
 .event-tip{position:fixed;z-index:100;display:none;align-items:center;gap:9px;width:max-content;max-width:min(420px,70vw);padding:9px 11px;border:1px solid var(--edge);border-radius:10px;background:rgba(18,24,44,.96);color:var(--ink);font-size:.72em;font-weight:400;line-height:1.35;white-space:normal;box-shadow:0 10px 30px rgba(0,0,0,.3);pointer-events:auto;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .event-tip.show{display:flex}
@@ -962,34 +962,22 @@ function renderAgenda(){
         document.body.append(tip);
         let tipOpen = false;
         let tipPinned = false;
+        let mouseX = 0, mouseY = 0;
         const positionTip = () => {
           if(!tipOpen) return;
           tip.classList.add('show');
-          const r = li.getBoundingClientRect();
           const tr = tip.getBoundingClientRect();
-          const gap = 8, pad = 10;
-          let left = r.left;
-          let top = r.bottom + gap;
+          const gap = 14, pad = 10;
+          let left = mouseX + gap;
+          let top = mouseY + gap;
 
-          /* Prefer below. If the event is near the bottom, prefer above. If
-             that would overlap the event (common for Tomorrow rows), put the
-             popup beside it instead so the hover target stays stable. */
-          if(top + tr.height > innerHeight - pad){
-            const above = r.top - tr.height - gap;
-            if(above >= pad){
-              top = above;
-            }else if(r.right + gap + tr.width <= innerWidth - pad){
-              left = r.right + gap;
-              top = Math.max(pad, Math.min(r.top, innerHeight - tr.height - pad));
-            }else if(r.left - gap - tr.width >= pad){
-              left = r.left - tr.width - gap;
-              top = Math.max(pad, Math.min(r.top, innerHeight - tr.height - pad));
-            }else{
-              top = Math.max(pad, innerHeight - tr.height - pad);
-            }
-          }
-          if(left + tr.width > innerWidth - pad) left = innerWidth - tr.width - pad;
+          /* Keep the tooltip attached to the pointer, flipping to the other
+             side when it would run outside the viewport. */
+          if(left + tr.width > innerWidth - pad) left = mouseX - tr.width - gap;
+          if(top + tr.height > innerHeight - pad) top = mouseY - tr.height - gap;
           if(left < pad) left = pad;
+          if(top < pad) top = pad;
+
           tip.style.left = Math.round(left) + 'px';
           tip.style.top = Math.round(top) + 'px';
         };
@@ -1000,9 +988,14 @@ function renderAgenda(){
           if(pinnedTip === tip) pinnedTip = null;
         };
         tip._close = closePinnedTip;
-        const openTip = () => {
+        const openTip = e => {
           if(pinnedTip && pinnedTip !== tip && pinnedTip._close) pinnedTip._close();
+          if(e){ mouseX = e.clientX; mouseY = e.clientY; }
           tipOpen = true; positionTip();
+        };
+        const moveTip = e => {
+          mouseX = e.clientX; mouseY = e.clientY;
+          if(tipOpen && !tipPinned) positionTip();
         };
         const closeTip = e => {
           const to = e && e.relatedTarget;
@@ -1010,6 +1003,7 @@ function renderAgenda(){
           tipOpen = false; tip.classList.remove('show');
         };
         li.addEventListener('pointerenter', openTip);
+        li.addEventListener('pointermove', moveTip);
         li.addEventListener('pointerleave', closeTip);
         li.addEventListener('click', e => {
           if(e.target.closest('.event-join')) return;
