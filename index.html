@@ -509,7 +509,7 @@ const $ = id => document.getElementById(id);
 const SHORTCUTS = [
   ['?', 'Show this help'],
   ['Space', 'Play / pause media'],
-  ['Ctrl + N', 'Next media track'],
+  ['Ctrl + M', 'Next media track'],
   ['Ctrl + P', 'Previous media track'],
   ['F', 'Toggle fullscreen'],
   ['Q', 'Toggle quick links'],
@@ -1495,7 +1495,7 @@ addEventListener('keydown', e => {
     mediaCommand('play-pause');
     return;
   }
-  if(e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && mediaKey === 'n'){
+  if(e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && mediaKey === 'm'){
     e.preventDefault();
     mediaCommand('next');
     return;
