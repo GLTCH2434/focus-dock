@@ -191,6 +191,19 @@ select option{color:#111}
 .calgrid .d.out{color:var(--dim);opacity:.45}
 .calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
 .status.bad{color:#ff8fab}
+/* Media controller: appears beside Favorites only while an MPRIS player is playing. */
+.media-controls{position:fixed;z-index:3;left:calc(clamp(10px,2.5vmin,26px) + clamp(40px,7vmin,56px) + 8px);bottom:clamp(10px,2.5vmin,26px);display:none;align-items:center;gap:6px;padding:5px 7px 5px 6px;max-width:min(520px,calc(100vw - 24px));border-radius:999px;background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 8px 30px rgba(0,0,0,.18);transition:opacity .25s,transform .25s}
+.media-controls.show{display:flex}
+.media-controls .m-art{width:30px;height:30px;flex:none;border-radius:8px;object-fit:cover;background:rgba(255,255,255,.08);display:none}
+.media-controls.has-art .m-art{display:block}
+.media-controls .m-meta{min-width:0;max-width:min(230px,32vw);display:flex;flex-direction:column;line-height:1.15}
+.media-controls .m-title,.media-controls .m-artist{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.media-controls .m-title{font-size:11px;color:var(--ink);font-weight:500}
+.media-controls .m-artist{font-size:9px;color:var(--dim);margin-top:2px}
+.media-controls .m-btn{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:50%;color:var(--ink);background:transparent;border:0}
+.media-controls .m-btn:hover{background:rgba(255,255,255,.12)}
+.media-controls .m-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:560px){.media-controls{left:calc(clamp(10px,2.5vmin,26px) + clamp(40px,7vmin,56px) + 6px);max-width:calc(100vw - 20px)}.media-controls .m-meta{max-width:30vw}}
 /* Quick links: bottom-left button + popup panel */
 .bar.bl{top:auto;bottom:clamp(10px,2.5vmin,26px)}      /* same look as the menu button, but in the bottom-left corner */
 #linksPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
@@ -303,6 +316,13 @@ select option{color:#111}
   <button id="linksBtn" aria-label="Quick links" aria-expanded="false" title="Quick links (Q)">
     <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg>
   </button>
+</nav>
+<nav class="media-controls" id="mediaControls" aria-label="Media controls">
+  <img class="m-art" id="mediaArt" alt="">
+  <div class="m-meta"><span class="m-title" id="mediaTitle"></span><span class="m-artist" id="mediaArtist"></span></div>
+  <button class="m-btn" id="mediaPrev" aria-label="Previous" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-8 6 8 6z"/></svg></button>
+  <button class="m-btn" id="mediaPlay" aria-label="Play or pause" title="Play or pause"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></button>
+  <button class="m-btn" id="mediaNext" aria-label="Next" title="Next"><svg viewBox="0 0 24 24"><path d="M6 6l8 6-8 6M18 5v14"/></svg></button>
 </nav>
 
 <main class="dock">
@@ -1408,6 +1428,37 @@ $('lnkAdd').onclick = addLink;
 [$('lnkUrl'), $('lnkName')].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') addLink(); }));
 renderLinks();
 refreshScreenUI();
+
+/* ============ System media controller (Linux MPRIS bridge) ============ */
+const MEDIA_BRIDGE = 'http://127.0.0.1:8765';
+let mediaState = null;
+function setMediaVisible(show){ $('mediaControls').classList.toggle('show', !!show); }
+function renderMedia(state){
+  const panel = $('mediaControls'), art = $('mediaArt');
+  if(!state || !state.playing){ mediaState = null; setMediaVisible(false); return; }
+  mediaState = state;
+  $('mediaTitle').textContent = state.title || 'Playing';
+  $('mediaArtist').textContent = state.artist || state.player || '';
+  if(state.art){ art.src = state.art; panel.classList.add('has-art'); art.onerror = () => panel.classList.remove('has-art'); }
+  else { art.removeAttribute('src'); panel.classList.remove('has-art'); }
+  setMediaVisible(true);
+}
+async function pollMedia(){
+  try{
+    const r = await fetch(MEDIA_BRIDGE + '/status', {cache:'no-store'});
+    if(!r.ok) throw new Error('bridge unavailable');
+    renderMedia(await r.json());
+  }catch(e){ setMediaVisible(false); mediaState = null; }
+}
+async function mediaCommand(cmd){
+  try{ await fetch(MEDIA_BRIDGE + '/command', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})}); }catch(e){}
+  setTimeout(pollMedia, 150);
+}
+$('mediaPrev').onclick = () => mediaCommand('previous');
+$('mediaPlay').onclick = () => mediaCommand('play-pause');
+$('mediaNext').onclick = () => mediaCommand('next');
+pollMedia();
+setInterval(pollMedia, 1500);
 
 /* Keyboard shortcuts.
    Q = quick links, S = settings, and while quick links are open a number/letter opens that tile.
