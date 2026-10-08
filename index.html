@@ -310,7 +310,7 @@ select option{color:#111}
 <aside id="menuPanel" class="glass" aria-label="Dock menu">
   <div class="ptitle" id="ptitle"></div>
 
-  <section class="pane" data-pane="focus">
+  <section class="pane" data-pane="focus" hidden>
     <div class="types" id="fModes">
       <button data-m="focus">Focus</button><button data-m="break">Break</button><button data-m="long">Long break</button>
     </div>
@@ -733,18 +733,18 @@ fRender();
 /* ============ The one menu: open/close + tabs ============ */
 const TAB_NAMES = {focus:'Focus timer', noise:'White noise', colors:'Blob colours', cal:'Google Calendar', weather:'Weather'};
 const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather'];     // order of the round buttons (keys 1 to 5)
-let lastTab = 'focus';                                            // current tab for this session; not persisted
 
 /* Keeps the round buttons in step: the open tool's button is highlighted, the menu button shows "expanded" */
 function syncBar(){
   const panelOpen = $('menuPanel').classList.contains('open'), expanded = $('menuBar').classList.contains('open');
-  document.querySelectorAll('#menuBar .sub').forEach(b => b.classList.toggle('sel', panelOpen && b.dataset.tab === lastTab));
+  const activePane = document.querySelector('.pane:not([hidden])');
+  const activeTab = activePane ? activePane.dataset.pane : '';
+  document.querySelectorAll('#menuBar .sub').forEach(b => b.classList.toggle('sel', panelOpen && b.dataset.tab === activeTab));
   $('menuBtn').classList.toggle('expanded', expanded);
   $('menuBtn').setAttribute('aria-expanded', String(expanded));
 }
 /* Puts one tool's content into the panel */
 function showTab(t){
-  lastTab = t;
   $('ptitle').textContent = TAB_NAMES[t] || '';
   document.querySelectorAll('.pane').forEach(p => p.hidden = p.dataset.pane !== t);
   syncBar();
@@ -754,7 +754,8 @@ function expandBar(){ closeLinks(); closeHelp(); $('menuBar').classList.add('ope
 /* Open one tool's panel (this also spreads the buttons out) */
 function openMenu(tab){
   expandBar();
-  showTab(tab || lastTab);
+  if(!tab) return;
+  showTab(tab);
   $('menuPanel').classList.add('open'); syncBar();
 }
 /* Close the panel AND fold the buttons back into the menu button */
@@ -765,7 +766,8 @@ $('menuBtn').onclick = () => $('menuBar').classList.contains('open') ? closeMenu
 /* Each round button opens its own panel; pressing the same one again closes just the panel */
 document.querySelectorAll('#menuBar .sub').forEach(b => b.onclick = () => {
   const t = b.dataset.tab;
-  if($('menuPanel').classList.contains('open') && lastTab === t){ $('menuPanel').classList.remove('open'); syncBar(); }
+  const activePane = document.querySelector('.pane:not([hidden])');
+  if($('menuPanel').classList.contains('open') && activePane && activePane.dataset.pane === t){ $('menuPanel').classList.remove('open'); syncBar(); }
   else openMenu(t);
 });
 /* Click anywhere outside the menu to close it */
@@ -774,7 +776,9 @@ document.addEventListener('click', e => {
   if(!e.target.closest('#linksPanel, #linksBtn')) closeLinks();
   if(!e.target.closest('#helpPanel')) closeHelp();
 });
-showTab('focus');
+/* Menu starts collapsed: opening it shows only the round tool icons. */
+document.querySelectorAll('.pane').forEach(p => p.hidden = true);
+syncBar();
 
 /* ============ Google Calendar + Tasks (read-only) ============
    Uses Google's sign-in popup, then asks the Calendar and Tasks APIs for today's and
@@ -1392,7 +1396,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   const linksOpen = $('linksPanel').classList.contains('open');
   if(k === 'q'){ e.preventDefault(); linksOpen ? closeLinks() : openLinks(); return; }
-  if(k === 's'){ e.preventDefault(); $('menuBar').classList.contains('open') ? closeMenu() : openMenu(); return; }
+  if(k === 's'){ e.preventDefault(); $('menuBar').classList.contains('open') ? closeMenu() : expandBar(); return; }
   if($('menuBar').classList.contains('open') && k >= '1' && k <= '5'){ e.preventDefault(); openMenu(TAB_ORDER[+k - 1]); return; }
   if(k === 'n'){ e.preventDefault(); closeMenu(); closeLinks(); closeHelp(); $('newNote').focus(); return; }   // type a note straight away
   if(k === 'j'){                                                    // join the meeting in the banner, or the next one
