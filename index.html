@@ -602,25 +602,37 @@ const PRESETS = {
   Mono:   ['#8a93b2','#c7cde0','#5a6385','#e9ecf5']
 };
 let colors = store.get('dockColors', PRESETS.Aurora);
+let customColors = store.get('dockCustomColors', colors);
 /* If the saved value looks wrong for any reason, fall back to the default */
-if(!Array.isArray(colors) || colors.length !== 4 || !colors.every(c => /^#[0-9a-f]{6}$/i.test(c))) colors = PRESETS.Aurora.slice();
+const validColors = c => Array.isArray(c) && c.length === 4 && c.every(x => /^#[0-9a-f]{6}$/i.test(x));
+if(!validColors(colors)) colors = PRESETS.Aurora.slice();
+if(!validColors(customColors)) customColors = colors.slice();
 
-function applyColors(){
+function applyColors(saveCustom = false){
   colors.forEach((c, i) => document.documentElement.style.setProperty('--b' + (i + 1), c));
   document.querySelectorAll('#swatches input').forEach((inp, i) => inp.value = colors[i]);
   store.set('dockColors', colors);
+  if(saveCustom){
+    customColors = colors.slice();
+    store.set('dockCustomColors', customColors);
+  }
 }
 /* Build the 4 colour pickers */
 colors.forEach((c, i) => {
   const inp = document.createElement('input');
   inp.type = 'color'; inp.setAttribute('aria-label', 'Blob colour ' + (i + 1));
-  inp.oninput = () => { colors[i] = inp.value; applyColors(); };   // updates live while you drag
+  inp.oninput = () => { colors[i] = inp.value; applyColors(true); };   // updates live and saves the custom preset
   $('swatches').append(inp);
 });
-/* Build the preset buttons */
-Object.keys(PRESETS).forEach(name => {
+/* Build the preset buttons. Custom is a separate saved preset, so built-in presets
+   can be tried without overwriting the user's own colour setup. */
+const presetNames = [...Object.keys(PRESETS), 'Custom'];
+presetNames.forEach(name => {
   const b = document.createElement('button'); b.textContent = name;
-  b.onclick = () => { colors = PRESETS[name].slice(); applyColors(); };
+  b.onclick = () => {
+    colors = name === 'Custom' ? customColors.slice() : PRESETS[name].slice();
+    applyColors();
+  };
   $('presets').append(b);
 });
 $('resetColors').onclick = () => { colors = PRESETS.Aurora.slice(); applyColors(); };
