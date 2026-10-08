@@ -77,16 +77,22 @@ body.idle .bar{opacity:0;pointer-events:none}
 .world-clock.show{display:flex}
 .world-clock .wc-city{color:var(--ink);font-size:.85em;font-weight:400;opacity:.8}
 .world-clock .wc-time{font-size:1.15em;font-variant-numeric:tabular-nums;color:var(--ink)}
-.wc-list{display:flex;flex-direction:column;gap:8px;margin-top:4px}
-.wc-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--edge);border-radius:12px;background:rgba(255,255,255,.045)}
+.wc-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.wc-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--edge);border-radius:12px;background:rgba(255,255,255,.045)}
 .wc-item .wc-meta{flex:1;min-width:0}
 .wc-item b{display:block;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wc-item small{display:block;margin-top:2px;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wc-item button{flex:none;width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--edge);opacity:.75}
+.wc-item button{flex:none;width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--edge);opacity:.75;color:var(--ink);cursor:pointer}
 .wc-item button:hover{opacity:1;background:rgba(255,255,255,.12)}
-.wc-add{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.wc-add input,.wc-add select{width:100%;padding:9px 10px;border-radius:10px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--edge);font:inherit;font-size:12px}
-.wc-add .play{grid-column:1/-1}
+.wc-add{display:block}
+.wc-search-wrap{position:relative}
+.wc-add input{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:11px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--edge);font:inherit;font-size:12px;outline:none}
+.wc-add input:focus{border-color:var(--b2);background:rgba(255,255,255,.09)}
+.wc-suggestions{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);display:flex;flex-direction:column;gap:3px;padding:5px;border:1px solid var(--edge);border-radius:12px;background:rgba(18,24,44,.97);box-shadow:0 14px 35px rgba(0,0,0,.3);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.wc-suggestion{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:9px 10px;border:0;border-radius:8px;background:transparent;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.wc-suggestion:hover,.wc-suggestion:focus{background:rgba(255,255,255,.09);outline:none}
+.wc-suggestion span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-suggestion small{color:var(--dim);font-size:9px;white-space:nowrap}
+.wc-empty{padding:9px 10px;color:var(--dim);font-size:11px}
 .wc-hint{font-size:11px;color:var(--dim);line-height:1.4}
 @media (max-width:560px){.world-clock{margin-left:0}}
 
@@ -434,13 +440,14 @@ select option{color:#111}
   </section>
 
   <section class="pane" data-pane="world" hidden>
-    <div class="wc-hint">Add one or more time zones. Configured clocks appear above the main clock.</div>
-    <div class="wc-list" id="wcList"></div>
+    <div class="wc-hint">Search for a city and select a suggestion. Configured clocks appear above the main clock.</div>
     <div class="wc-add">
-      <input id="wcCity" placeholder="City name, e.g. New York" maxlength="32" autocomplete="off">
-      <input id="wcZone" placeholder="IANA timezone, e.g. America/New_York" maxlength="64" autocomplete="off">
-      <button class="play" id="wcAdd">Add clock</button>
+      <div class="wc-search-wrap">
+        <input id="wcCity" placeholder="Search city..." maxlength="40" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="wcSuggestions">
+        <div class="wc-suggestions" id="wcSuggestions" role="listbox" hidden></div>
+      </div>
     </div>
+    <div class="wc-list" id="wcList"></div>
     <div class="status" id="wcStatus"></div>
   </section>
 
@@ -1518,6 +1525,21 @@ const WC_KEY = 'dockWorldClocks';
 let worldClocks = store.get(WC_KEY, []);
 if(!Array.isArray(worldClocks)) worldClocks = [];
 
+/* Friendly city names mapped to IANA time zones. No API is needed for suggestions. */
+const WORLD_CITIES = [
+  ['Bengaluru, India','Asia/Kolkata'],['Mumbai, India','Asia/Kolkata'],['New Delhi, India','Asia/Kolkata'],['Kolkata, India','Asia/Kolkata'],['Chennai, India','Asia/Kolkata'],['Hyderabad, India','Asia/Kolkata'],
+  ['Dubai, UAE','Asia/Dubai'],['Abu Dhabi, UAE','Asia/Dubai'],['Singapore','Asia/Singapore'],['Bangkok, Thailand','Asia/Bangkok'],['Jakarta, Indonesia','Asia/Jakarta'],['Kuala Lumpur, Malaysia','Asia/Kuala_Lumpur'],
+  ['Tokyo, Japan','Asia/Tokyo'],['Seoul, South Korea','Asia/Seoul'],['Beijing, China','Asia/Shanghai'],['Hong Kong','Asia/Hong_Kong'],['Shanghai, China','Asia/Shanghai'],
+  ['Sydney, Australia','Australia/Sydney'],['Melbourne, Australia','Australia/Melbourne'],['Perth, Australia','Australia/Perth'],
+  ['London, UK','Europe/London'],['Paris, France','Europe/Paris'],['Berlin, Germany','Europe/Berlin'],['Rome, Italy','Europe/Rome'],['Madrid, Spain','Europe/Madrid'],['Amsterdam, Netherlands','Europe/Amsterdam'],
+  ['Moscow, Russia','Europe/Moscow'],['Istanbul, Türkiye','Europe/Istanbul'],
+  ['New York, USA','America/New_York'],['Washington, DC, USA','America/New_York'],['Boston, USA','America/New_York'],['Chicago, USA','America/Chicago'],['Houston, USA','America/Chicago'],['Denver, USA','America/Denver'],['Phoenix, USA','America/Phoenix'],['Los Angeles, USA','America/Los_Angeles'],['San Francisco, USA','America/Los_Angeles'],['Seattle, USA','America/Los_Angeles'],
+  ['Toronto, Canada','America/Toronto'],['Vancouver, Canada','America/Vancouver'],['Mexico City, Mexico','America/Mexico_City'],
+  ['São Paulo, Brazil','America/Sao_Paulo'],['Buenos Aires, Argentina','America/Argentina/Buenos_Aires'],
+  ['Johannesburg, South Africa','Africa/Johannesburg'],['Cairo, Egypt','Africa/Cairo'],['Nairobi, Kenya','Africa/Nairobi'],
+  ['Auckland, New Zealand','Pacific/Auckland'],['Honolulu, USA','Pacific/Honolulu'],['UTC','UTC']
+];
+
 function validTimeZone(tz){
   try{ new Intl.DateTimeFormat(undefined, {timeZone:tz}).format(); return true; }
   catch(e){ return false; }
@@ -1535,13 +1557,12 @@ function renderWorldClocks(){
     const row = document.createElement('div'); row.className = 'wc-item';
     const meta = document.createElement('div'); meta.className = 'wc-meta';
     const b = document.createElement('b'); b.textContent = c.city;
-    const sm = document.createElement('small'); sm.textContent = c.tz;
-    meta.append(b, sm);
+    meta.append(b);
     const rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '×'; rm.title = 'Remove'; rm.setAttribute('aria-label', 'Remove ' + c.city);
     rm.onclick = () => { worldClocks.splice(i, 1); store.set(WC_KEY, worldClocks); renderWorldClocks(); updateWorldClock(); };
     row.append(meta, rm); list.append(row);
   });
-  if(!worldClocks.length) list.innerHTML = '<div class="status">No clocks configured yet.</div>';
+  if(!worldClocks.length) list.innerHTML = '<div class="status">No locations added yet.</div>';
 }
 function updateWorldClock(){
   const el = $('worldClock');
@@ -1557,18 +1578,48 @@ function updateWorldClock(){
     wrap.append(city, sep, tm); el.append(wrap);
   });
 }
-$('wcAdd').onclick = () => {
-  const city = $('wcCity').value.trim();
-  const tz = $('wcZone').value.trim();
-  if(!city || !tz){ $('wcStatus').textContent = 'Enter both a city name and an IANA timezone.'; return; }
-  if(!validTimeZone(tz)){ $('wcStatus').textContent = 'That timezone is not valid. Example: Asia/Tokyo'; return; }
-  if(worldClocks.some(c => c.tz === tz)){ $('wcStatus').textContent = 'That timezone is already configured.'; return; }
+const wcInput = $('wcCity'), wcSuggestions = $('wcSuggestions');
+function closeWcSuggestions(){
+  wcSuggestions.hidden = true; wcInput.setAttribute('aria-expanded','false');
+}
+function addWorldCity(city, tz){
+  if(worldClocks.some(c => c.tz === tz)){ $('wcStatus').textContent = city + ' is already configured.'; closeWcSuggestions(); return; }
   worldClocks.push({city, tz});
   store.set(WC_KEY, worldClocks);
-  $('wcCity').value = ''; $('wcZone').value = ''; $('wcStatus').textContent = '';
+  wcInput.value = ''; closeWcSuggestions(); $('wcStatus').textContent = '';
   renderWorldClocks(); updateWorldClock();
-};
-[$('wcCity'), $('wcZone')].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') $('wcAdd').click(); }));
+}
+function renderWcSuggestions(){
+  const q = wcInput.value.trim().toLowerCase();
+  wcSuggestions.innerHTML = '';
+  if(!q){ closeWcSuggestions(); return; }
+  const parts = q.split(/\s+/).filter(Boolean);
+  const matches = WORLD_CITIES.filter(([city]) => {
+    const text = city.toLowerCase();
+    return parts.every(part => text.includes(part));
+  }).slice(0,8);
+  if(!matches.length){
+    wcSuggestions.innerHTML = '<div class="wc-empty">No matching location</div>';
+    wcSuggestions.hidden = false; wcInput.setAttribute('aria-expanded','true'); return;
+  }
+  matches.forEach(([city,tz], i) => {
+    const b = document.createElement('button'); b.type='button'; b.className='wc-suggestion'; b.setAttribute('role','option');
+    b.innerHTML = '<span>' + city.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span><small>' + tz.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</small>';
+    b.onclick = () => addWorldCity(city,tz);
+    wcSuggestions.append(b);
+  });
+  wcSuggestions.hidden = false; wcInput.setAttribute('aria-expanded','true');
+}
+wcInput.addEventListener('input', renderWcSuggestions);
+wcInput.addEventListener('focus', renderWcSuggestions);
+document.addEventListener('click', e => { if(!e.target.closest('.wc-search-wrap')) closeWcSuggestions(); });
+wcInput.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){ closeWcSuggestions(); return; }
+  if(e.key === 'Enter'){
+    const first = wcSuggestions.querySelector('.wc-suggestion');
+    if(first && !wcSuggestions.hidden){ e.preventDefault(); first.click(); }
+  }
+});
 renderWorldClocks();
 
 /* ============ Fullscreen (+ keep the screen awake) ============ */
