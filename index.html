@@ -914,7 +914,9 @@ async function refreshCal(){
 
 /* Draw today's and tomorrow's events and tasks under the clock */
 function renderAgenda(){
+  document.querySelectorAll('body > .event-tip').forEach(t => t.remove());
   const ul = $('agenda'); ul.innerHTML = '';
+  let pinnedTip = null;
   const add = (label, text, cls, color) => {
     const li = document.createElement('li'); if(cls) li.className = cls;
     const b = document.createElement('b'); b.textContent = label;
@@ -954,6 +956,7 @@ function renderAgenda(){
         /* Keep the popup outside .agenda so overflow-y:auto cannot clip it. */
         document.body.append(tip);
         let tipOpen = false;
+        let tipPinned = false;
         const positionTip = () => {
           if(!tipOpen) return;
           tip.classList.add('show');
@@ -962,21 +965,54 @@ function renderAgenda(){
           const gap = 8, pad = 10;
           let left = r.left;
           let top = r.bottom + gap;
+
+          /* Prefer below. If the event is near the bottom, prefer above. If
+             that would overlap the event (common for Tomorrow rows), put the
+             popup beside it instead so the hover target stays stable. */
+          if(top + tr.height > innerHeight - pad){
+            const above = r.top - tr.height - gap;
+            if(above >= pad){
+              top = above;
+            }else if(r.right + gap + tr.width <= innerWidth - pad){
+              left = r.right + gap;
+              top = Math.max(pad, Math.min(r.top, innerHeight - tr.height - pad));
+            }else if(r.left - gap - tr.width >= pad){
+              left = r.left - tr.width - gap;
+              top = Math.max(pad, Math.min(r.top, innerHeight - tr.height - pad));
+            }else{
+              top = Math.max(pad, innerHeight - tr.height - pad);
+            }
+          }
           if(left + tr.width > innerWidth - pad) left = innerWidth - tr.width - pad;
           if(left < pad) left = pad;
-          if(top + tr.height > innerHeight - pad) top = r.top - tr.height - gap;
-          if(top < pad) top = pad;
           tip.style.left = Math.round(left) + 'px';
           tip.style.top = Math.round(top) + 'px';
         };
-        const openTip = () => { tipOpen = true; positionTip(); };
+        const openTip = () => {
+          if(pinnedTip && pinnedTip !== tip) pinnedTip.classList.remove('show');
+          tipOpen = true; positionTip();
+        };
         const closeTip = e => {
           const to = e && e.relatedTarget;
-          if(to === tip || (to && tip.contains(to))) return;
+          if(tipPinned || to === tip || (to && tip.contains(to))) return;
           tipOpen = false; tip.classList.remove('show');
         };
         li.addEventListener('pointerenter', openTip);
         li.addEventListener('pointerleave', closeTip);
+        li.addEventListener('click', e => {
+          if(e.target.closest('.event-join')) return;
+          tipPinned = !tipPinned;
+          if(tipPinned){
+            if(pinnedTip && pinnedTip !== tip) pinnedTip.classList.remove('show');
+            pinnedTip = tip;
+            tipOpen = true;
+            positionTip();
+          }else{
+            if(pinnedTip === tip) pinnedTip = null;
+            tipOpen = false;
+            tip.classList.remove('show');
+          }
+        });
         tip.addEventListener('pointerleave', closeTip);
         tip.addEventListener('pointerenter', () => { tipOpen = true; });
         window.addEventListener('resize', positionTip, {passive:true});
@@ -987,6 +1023,11 @@ function renderAgenda(){
     if(!evs.length && !tasks.length) add('', 'Nothing planned', '');
   });
 }
+
+document.addEventListener('click', e => {
+  if(e.target.closest('.has-location, .event-tip')) return;
+  document.querySelectorAll('body > .event-tip.show').forEach(t => t.classList.remove('show'));
+});
 
 /* Keep the Calendar tab in the menu in step with what's happening */
 function calUI(){
