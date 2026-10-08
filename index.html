@@ -295,6 +295,22 @@ select option{color:#111}
 #menuBtn.expanded{background:rgba(255,255,255,.18)}
 .ptitle{font-size:15px;font-weight:600}
 @media (prefers-reduced-motion:reduce){.blob,#menuBtn.on,.pill.ready{animation:none}}
+/* Shortcuts help panel */
+#helpPanel{position:fixed;z-index:20;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto;padding:20px;
+  display:none;flex-direction:column;gap:16px;background:rgba(18,24,44,.82);
+  border:1px solid var(--edge);border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.38);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);animation:helpPop .18s ease-out}
+#helpPanel.open{display:flex}
+@keyframes helpPop{from{opacity:0;transform:translate(-50%,-50%) scale(.97)}}
+#helpPanel .lhead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--edge)}
+#helpPanel .lhead b{font-size:16px;font-weight:600}
+#helpPanel .lhead button{font-size:13px;opacity:.7;padding:4px 10px;border-radius:9px;background:none;border:1px solid var(--edge);color:var(--ink);cursor:pointer}
+#helpPanel .lhead button:hover{opacity:1;background:rgba(255,255,255,.1)}
+#helpGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#helpGrid>div{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 10px;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:10px}
+@media(max-width:560px){#helpGrid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -471,6 +487,7 @@ select option{color:#111}
 /* ============ Helpers ============ */
 const $ = id => document.getElementById(id);
 
+
 /* ============ Shortcuts help panel ============ */
 const SHORTCUTS = [
   ['?', 'Show this help'],
@@ -515,9 +532,10 @@ function closeHelp(){
 }
 $('helpClose').onclick = closeHelp;
 addEventListener('keydown', e => {
-  /* ? opens the shortcuts panel. Ignore it while typing in a field. */
-  const helpKey = e.key === '?' && !e.repeat;
-  if(helpKey && !e.target.closest('input, textarea, select, [contenteditable]')){
+  /* ? opens the shortcuts panel. Support both the produced character and Shift+/ for keyboard layouts. */
+  const helpKey = e.key === '?' || (e.code === 'Slash' && e.shiftKey);
+  const typing = e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
+  if(helpKey && !typing && !e.repeat){
     e.preventDefault();
     e.stopPropagation();
     $('helpPanel').classList.contains('open') ? closeHelp() : openHelp();
