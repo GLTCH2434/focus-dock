@@ -217,6 +217,8 @@ select option{color:#111}
 /* Agenda: scrolls if there are lots of items, with day headings and faded past events */
 .agenda{max-height:45vh;overflow-y:auto}
 .agenda li.head{font-size:.75em;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin-top:.5em}
+.agenda li.head b{display:none}
+.agenda li.head span{margin-left:calc(5.4em + .7em)}
 /* Weather line under the date */
 .wx{margin-top:.8vmin;font-size:clamp(13px,2.8vmin,24px);font-weight:300;color:var(--dim);cursor:pointer}
 .wx:hover{color:var(--ink)}
