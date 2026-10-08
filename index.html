@@ -988,8 +988,15 @@ function renderAgenda(){
           tip.style.left = Math.round(left) + 'px';
           tip.style.top = Math.round(top) + 'px';
         };
+        const closePinnedTip = () => {
+          tipPinned = false;
+          tipOpen = false;
+          tip.classList.remove('show');
+          if(pinnedTip === tip) pinnedTip = null;
+        };
+        tip._close = closePinnedTip;
         const openTip = () => {
-          if(pinnedTip && pinnedTip !== tip) pinnedTip.classList.remove('show');
+          if(pinnedTip && pinnedTip !== tip && pinnedTip._close) pinnedTip._close();
           tipOpen = true; positionTip();
         };
         const closeTip = e => {
@@ -1003,7 +1010,7 @@ function renderAgenda(){
           if(e.target.closest('.event-join')) return;
           tipPinned = !tipPinned;
           if(tipPinned){
-            if(pinnedTip && pinnedTip !== tip) pinnedTip.classList.remove('show');
+            if(pinnedTip && pinnedTip !== tip && pinnedTip._close) pinnedTip._close();
             pinnedTip = tip;
             tipOpen = true;
             positionTip();
@@ -1026,7 +1033,10 @@ function renderAgenda(){
 
 document.addEventListener('click', e => {
   if(e.target.closest('.has-location, .event-tip')) return;
-  document.querySelectorAll('body > .event-tip.show').forEach(t => t.classList.remove('show'));
+  document.querySelectorAll('body > .event-tip').forEach(t => {
+    if(t._close) t._close();
+    else t.classList.remove('show');
+  });
 });
 
 /* Keep the Calendar tab in the menu in step with what's happening */
