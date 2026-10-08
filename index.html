@@ -494,6 +494,9 @@ const $ = id => document.getElementById(id);
 /* ============ Shortcuts help panel ============ */
 const SHORTCUTS = [
   ['?', 'Show this help'],
+  ['Space', 'Play / pause media'],
+  ['Ctrl + N', 'Next media track'],
+  ['Ctrl + P', 'Previous media track'],
   ['F', 'Toggle fullscreen'],
   ['Q', 'Toggle quick links'],
   ['S', 'Open or close the menu buttons'],
@@ -1493,6 +1496,27 @@ $('mediaPlay').onclick = () => mediaCommand('play-pause');
 $('mediaNext').onclick = () => mediaCommand('next');
 pollMedia();
 setInterval(pollMedia, 1500);
+
+/* Media keyboard shortcuts. Keep these separate so Ctrl+P does not fall through to browser print.
+   Space = play/pause, Ctrl+N = next, Ctrl+P = previous. Ignored while typing. */
+addEventListener('keydown', e => {
+  if(e.repeat || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  const mediaKey = e.key.toLowerCase();
+  if(!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Space'){
+    e.preventDefault();
+    mediaCommand('play-pause');
+    return;
+  }
+  if(e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && mediaKey === 'n'){
+    e.preventDefault();
+    mediaCommand('next');
+    return;
+  }
+  if(e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && mediaKey === 'p'){
+    e.preventDefault();
+    mediaCommand('previous');
+  }
+});
 
 /* Keyboard shortcuts.
    Q = quick links, S = settings, and while quick links are open a number/letter opens that tile.
