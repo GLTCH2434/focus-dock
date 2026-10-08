@@ -73,6 +73,22 @@ body.idle .bar{opacity:0;pointer-events:none}
   text-shadow:0 4px 40px rgba(10,15,28,.35)}
 .time small{font-size:.22em;letter-spacing:0;font-weight:300;color:var(--dim);margin-left:.25em}
 .date{margin-top:1.2vmin;font-size:clamp(14px,3.6vmin,34px);font-weight:300;color:var(--dim)}
+.world-clock{display:none;margin:0 0 clamp(8px,1.2vmin,14px) calc(-1 * clamp(14px,4vmin,44px));align-items:center;gap:10px;color:var(--dim);font-size:clamp(10px,1.7vmin,16px);font-weight:300;line-height:1.15;opacity:.9}
+.world-clock.show{display:flex}
+.world-clock .wc-city{color:var(--ink);font-size:.85em;font-weight:400;opacity:.8}
+.world-clock .wc-time{font-size:1.15em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.wc-list{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.wc-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--edge);border-radius:12px;background:rgba(255,255,255,.045)}
+.wc-item .wc-meta{flex:1;min-width:0}
+.wc-item b{display:block;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-item small{display:block;margin-top:2px;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-item button{flex:none;width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--edge);opacity:.75}
+.wc-item button:hover{opacity:1;background:rgba(255,255,255,.12)}
+.wc-add{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wc-add input,.wc-add select{width:100%;padding:9px 10px;border-radius:10px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--edge);font:inherit;font-size:12px}
+.wc-add .play{grid-column:1/-1}
+.wc-hint{font-size:11px;color:var(--dim);line-height:1.4}
+@media (max-width:560px){.world-clock{margin-left:0}}
 
 /* ---------- Glass panels (notes + noise player) ---------- */
 .glass{background:var(--glass);border:1px solid var(--edge);border-radius:clamp(18px,3.5vmin,32px);
@@ -280,6 +296,7 @@ select option{color:#111}
   <button class="sub" data-tab="colors" style="--i:3" aria-label="Blob colours" title="Blob colours (3)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10.5" r="1"/></svg></button>
   <button class="sub" data-tab="cal" style="--i:4" aria-label="Google Calendar" title="Google Calendar (4)"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button>
   <button class="sub" data-tab="weather" style="--i:5" aria-label="Weather" title="Weather (5)"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-7.97A5.5 5.5 0 0 0 7 9.5 4.25 4.25 0 0 0 7 18z"/></svg></button>
+  <button class="sub" data-tab="world" style="--i:6" aria-label="World clock" title="World clock (6)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.2 2.3 3.3 5.1 3.3 8.5s-1.1 6.2-3.3 8.5c-2.2-2.3-3.3-5.1-3.3-8.5s1.1-6.2 3.3-8.5z"/></svg></button>
 </nav>
 <!-- Bottom-left: quick links button -->
 <nav class="bar bl">
@@ -290,6 +307,7 @@ select option{color:#111}
 
 <main class="dock">
   <section class="clock">
+    <div class="world-clock" id="worldClock" aria-live="polite"></div>
     <!-- Click the time to switch between 12h and 24h -->
     <div class="time" id="time" title="Click to switch 12h / 24h"><span id="hm">--:--</span><small id="sec"></small><small id="ampm"></small></div>
     <div class="date" id="date"></div>
@@ -381,6 +399,17 @@ select option{color:#111}
     <div class="status">Press J any time to join the current or next meeting that has a video link.</div>
   </section>
 
+  <section class="pane" data-pane="world" hidden>
+    <div class="wc-hint">Add one or more time zones. Configured clocks appear above the main clock.</div>
+    <div class="wc-list" id="wcList"></div>
+    <div class="wc-add">
+      <input id="wcCity" placeholder="City name, e.g. New York" maxlength="32" autocomplete="off">
+      <input id="wcZone" placeholder="IANA timezone, e.g. America/New_York" maxlength="64" autocomplete="off">
+      <button class="play" id="wcAdd">Add clock</button>
+    </div>
+    <div class="status" id="wcStatus"></div>
+  </section>
+
   </aside>
 
 <!-- Quick links panel (opens above the bottom-left button) -->
@@ -423,7 +452,7 @@ const SHORTCUTS = [
   ['F', 'Toggle fullscreen'],
   ['Q', 'Toggle quick links'],
   ['S', 'Open or close the menu buttons'],
-  ['1-5 (menu open)', 'Focus, Noise, Colours, Calendar, Weather'],
+  ['1-6 (menu open)', 'Focus, Noise, Colours, Calendar, Weather, World clock'],
   ['N', 'Jump to the note box (Esc to leave it)'],
   ['J', 'Join the current or next meeting'],
   ['Click time', 'Toggle 12h / 24h'],
@@ -484,6 +513,7 @@ function tick(){
   $('sec').textContent = String(d.getSeconds()).padStart(2,'0');
   $('ampm').textContent = suffix;
   $('date').textContent = d.toLocaleDateString(undefined, {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  updateWorldClock();
   if(d.toDateString() !== lastDay){ lastDay = d.toDateString(); calView = new Date(d.getFullYear(), d.getMonth(), 1); renderMonth(); }
 
   /* sleep timer check, done once a second together with the clock */
@@ -729,8 +759,8 @@ $('pill').onclick = () => { if(fReady && !fRunning) $('fStart').onclick(); else 
 fRender();
 
 /* ============ The one menu: open/close + tabs ============ */
-const TAB_NAMES = {focus:'Focus timer', noise:'White noise', colors:'Blob colours', cal:'Google Calendar', weather:'Weather'};
-const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather'];     // order of the round buttons (keys 1 to 5)
+const TAB_NAMES = {focus:'Focus timer', noise:'White noise', colors:'Blob colours', cal:'Google Calendar', weather:'Weather', world:'World clock'};
+const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather', 'world'];     // order of the round buttons (keys 1 to 5)
 
 /* Keeps the round buttons in step: the open tool's button is highlighted, the menu button shows "expanded" */
 function syncBar(){
@@ -1389,7 +1419,7 @@ addEventListener('keydown', e => {
   const linksOpen = $('linksPanel').classList.contains('open');
   if(k === 'q'){ e.preventDefault(); linksOpen ? closeLinks() : openLinks(); return; }
   if(k === 's'){ e.preventDefault(); $('menuBar').classList.contains('open') ? closeMenu() : expandBar(); return; }
-  if($('menuBar').classList.contains('open') && k >= '1' && k <= '5'){ e.preventDefault(); openMenu(TAB_ORDER[+k - 1]); return; }
+  if($('menuBar').classList.contains('open') && k >= '1' && k <= '6'){ e.preventDefault(); openMenu(TAB_ORDER[+k - 1]); return; }
   if(k === 'n'){ e.preventDefault(); closeMenu(); closeLinks(); closeHelp(); $('newNote').focus(); return; }   // type a note straight away
   if(k === 'j'){                                                    // join the meeting in the banner, or the next one
     e.preventDefault();
@@ -1408,6 +1438,64 @@ if('getScreenDetails' in window && navigator.permissions){
     .then(pm => { if(pm.state === 'granted') loadScreens().then(refreshScreenUI); })
     .catch(() => {});
 }
+
+/* ============ World clock ============ */
+const WC_KEY = 'dockWorldClocks';
+let worldClocks = store.get(WC_KEY, []);
+if(!Array.isArray(worldClocks)) worldClocks = [];
+
+function validTimeZone(tz){
+  try{ new Intl.DateTimeFormat(undefined, {timeZone:tz}).format(); return true; }
+  catch(e){ return false; }
+}
+function worldTime(tz){
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone:tz, hour:'numeric', minute:'2-digit', second:'2-digit', hour12:!use24
+  }).format(new Date());
+}
+function renderWorldClocks(){
+  const list = $('wcList');
+  if(!list) return;
+  list.innerHTML = '';
+  worldClocks.forEach((c, i) => {
+    const row = document.createElement('div'); row.className = 'wc-item';
+    const meta = document.createElement('div'); meta.className = 'wc-meta';
+    const b = document.createElement('b'); b.textContent = c.city;
+    const sm = document.createElement('small'); sm.textContent = c.tz;
+    meta.append(b, sm);
+    const rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '×'; rm.title = 'Remove'; rm.setAttribute('aria-label', 'Remove ' + c.city);
+    rm.onclick = () => { worldClocks.splice(i, 1); store.set(WC_KEY, worldClocks); renderWorldClocks(); updateWorldClock(); };
+    row.append(meta, rm); list.append(row);
+  });
+  if(!worldClocks.length) list.innerHTML = '<div class="status">No clocks configured yet.</div>';
+}
+function updateWorldClock(){
+  const el = $('worldClock');
+  if(!el) return;
+  if(!worldClocks.length){ el.classList.remove('show'); el.innerHTML = ''; return; }
+  el.classList.add('show');
+  el.innerHTML = '';
+  worldClocks.forEach(c => {
+    const wrap = document.createElement('span');
+    const city = document.createElement('span'); city.className = 'wc-city'; city.textContent = c.city;
+    const sep = document.createTextNode(' · ');
+    const tm = document.createElement('span'); tm.className = 'wc-time'; tm.textContent = worldTime(c.tz);
+    wrap.append(city, sep, tm); el.append(wrap);
+  });
+}
+$('wcAdd').onclick = () => {
+  const city = $('wcCity').value.trim();
+  const tz = $('wcZone').value.trim();
+  if(!city || !tz){ $('wcStatus').textContent = 'Enter both a city name and an IANA timezone.'; return; }
+  if(!validTimeZone(tz)){ $('wcStatus').textContent = 'That timezone is not valid. Example: Asia/Tokyo'; return; }
+  if(worldClocks.some(c => c.tz === tz)){ $('wcStatus').textContent = 'That timezone is already configured.'; return; }
+  worldClocks.push({city, tz});
+  store.set(WC_KEY, worldClocks);
+  $('wcCity').value = ''; $('wcZone').value = ''; $('wcStatus').textContent = '';
+  renderWorldClocks(); updateWorldClock();
+};
+[$('wcCity'), $('wcZone')].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') $('wcAdd').click(); }));
+renderWorldClocks();
 
 /* ============ Fullscreen (+ keep the screen awake) ============ */
 let wake = null;
