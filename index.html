@@ -515,11 +515,9 @@ function closeHelp(){
 }
 $('helpClose').onclick = closeHelp;
 addEventListener('keydown', e => {
-  /* ? is Shift+/ on a normal keyboard; checking code as well makes the shortcut
-     reliable across keyboard layouts/browsers. */
-  const helpKey = e.key === '?' || (e.code === 'Slash' && e.shiftKey);
-  if(helpKey && !e.ctrlKey && !e.metaKey && !e.altKey
-     && !e.target.closest('input, textarea, select, [contenteditable]')){
+  /* ? opens the shortcuts panel. Ignore it while typing in a field. */
+  const helpKey = e.key === '?' && !e.repeat;
+  if(helpKey && !e.target.closest('input, textarea, select, [contenteditable]')){
     e.preventDefault();
     e.stopPropagation();
     $('helpPanel').classList.contains('open') ? closeHelp() : openHelp();
