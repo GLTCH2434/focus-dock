@@ -1340,21 +1340,24 @@ refreshWx();
 let lastDay = '';                // used to notice when midnight passes
 
 /* Holiday detection: checks if a date is a holiday.
-   Supports fixed dates (MM-DD), Easter-based offsets, and custom user holidays. */
+   Supports fixed dates (MM-DD), Easter-based offsets, and custom user holidays.
+   Returns the holiday name if it's a holiday, otherwise false. */
 function isHoliday(d){
   const mmdd = String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const ddmm = String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0');
   const yyyy = d.getFullYear();
   /* Fixed holidays (add/remove for your locale) */
-  const fixed = ['01-01','12-25','12-26']; // New Year, Christmas, Boxing Day
-  if(fixed.includes(mmdd)) return true;
+  const fixed = {'01-01': 'New Year\'s Day', '12-25': 'Christmas', '12-26': 'Boxing Day'};
+  if(fixed[mmdd]) return fixed[mmdd];
   /* Easter-based holidays (Good Friday, Easter Monday) */
   const easter = easterDate(yyyy);
   const goodFri = new Date(easter); goodFri.setDate(easter.getDate()-2);
   const easterMon = new Date(easter); easterMon.setDate(easter.getDate()+1);
-  if(sameDay(d, goodFri) || sameDay(d, easterMon)) return true;
-  /* User-defined holidays from localStorage (format: 'YYYY-MM-DD' or 'MM-DD') */
+  if(sameDay(d, goodFri)) return 'Good Friday';
+  if(sameDay(d, easterMon)) return 'Easter Monday';
+  /* User-defined holidays from localStorage (format: 'YYYY-MM-DD', 'MM-DD', or 'DD-MM') */
   const custom = store.get('dockHolidays', []);
-  if(custom.includes(mmdd) || custom.includes(yyyy+'-'+mmdd)) return true;
+  if(custom.includes(mmdd) || custom.includes(ddmm) || custom.includes(yyyy+'-'+mmdd)) return 'Custom holiday';
   return false;
 }
 
@@ -1403,6 +1406,7 @@ function renderMonth(){
     const el = document.createElement('div');
     el.className = cls;
     el.textContent = d.getDate();
+    if(hol) el.title = hol;
     g.append(el);
   }
 }
