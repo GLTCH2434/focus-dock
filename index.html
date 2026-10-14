@@ -1651,7 +1651,7 @@ $('lnkAdd').onclick = addLink;
 renderLinks();
 
 /* ============ System media controller (Linux MPRIS bridge) ============ */
-const MEDIA_BRIDGE = (location.protocol === 'https:' ? 'https' : 'http') + '://127.0.0.1:8765';
+const MEDIA_BRIDGE = 'http://127.0.0.1:8765';   // always plain http: browsers allow http to 127.0.0.1 from an https page, but a local bridge can't serve https
 let mediaState = null;
 function setMediaVisible(show){ $('mediaControls').classList.toggle('show', !!show); }
 function setMediaStatus(message){ const el = $('mediaStatus'); el.textContent = message || ''; el.classList.toggle('show', !!message); }
@@ -1661,7 +1661,7 @@ function renderMedia(state){
   mediaState = state;
   $('mediaTitle').textContent = state.title || 'No title';
   $('mediaArtist').textContent = state.artist || state.player || '';
-  if(state.art){ art.src = state.art; panel.classList.add('has-art'); art.onerror = () => panel.classList.remove('has-art'); }
+  if(state.art){ art.src = state.art.startsWith('/') ? MEDIA_BRIDGE + state.art + '?v=' + encodeURIComponent(state.title || '') : state.art; panel.classList.add('has-art'); art.onerror = () => panel.classList.remove('has-art'); }
   else { art.removeAttribute('src'); panel.classList.remove('has-art'); }
   const length = Number(state.length || 0), position = Number(state.position || 0);
   const progress = length > 0 ? Math.max(0, Math.min(100, position / length * 100)) : 0;
