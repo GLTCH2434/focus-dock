@@ -1085,7 +1085,7 @@ function renderAgenda(){
     const s = new Date(todayStart); s.setDate(s.getDate() + n);
     const e2 = new Date(s); e2.setDate(e2.getDate() + 1);
     add('', n ? 'Tomorrow' : 'Today', 'head');
-    const evs = gEvents.filter(e => e.start < e2 && e.end > s);
+    const evs = gEvents.filter(e => e.start < e2 && e.start >= s);
     const tasks = gTasks.filter(t => t.due === ymd(s) || (n === 0 && t.due < ymd(s)));   // today also shows overdue tasks
     evs.forEach(e => {
       const li = add(e.allDay ? 'All day' : tm(e.start), e.title, '', e.color);
