@@ -985,7 +985,10 @@ async function refreshCal(){
     const all = (await gGet('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50')).items || [];
     const me = all.find(c => c.primary);                 // your main calendar's id is your email address
     if(me) store.set('dockGcalHint', me.id);             // kept only in this browser
-    const cals = all.filter(c => c.selected).slice(0, 8);
+    /* Include selected calendars + any holiday calendars (auto-detected by ID pattern) */
+    const selected = all.filter(c => c.selected);
+    const holiday = all.filter(c => !c.selected && /holiday/i.test(c.id + ' ' + (c.description || '')));
+    const cals = [...selected, ...holiday].slice(0, 10);
     const from = new Date(); from.setHours(0, 0, 0, 0);
     const to = new Date(from); to.setDate(to.getDate() + 2);          // start of today to end of tomorrow
     const q = 'singleEvents=true&orderBy=startTime&maxResults=100&timeMin=' + encodeURIComponent(from.toISOString())
@@ -1160,7 +1163,8 @@ function calUI(){
   /* what this page looks like to Google: the origin must exactly match an Authorized JavaScript origin */
   $('calInfo').textContent = 'This page: ' + location.origin + (window.isSecureContext ? '' : ' (not a secure context; use localhost or HTTPS)')
     + ' · client ID ' + (gcalReady ? 'found' : 'missing')
-    + (gErr && /origin|redirect_uri|unauthorized_client|client_id|access_denied/i.test(gErr) ? ' · Check Google Cloud OAuth settings: add this exact origin and enable Calendar API + Tasks API.' : '');
+    + (gErr && /origin|redirect_uri|unauthorized_client|client_id|access_denied/i.test(gErr) ? ' · Check Google Cloud OAuth settings: add this exact origin and enable Calendar API + Tasks API.' : '')
+    + ' · Holiday calendars (e.g. "Holidays in India") are auto-included from your Google Calendar list';
   renderAgenda();
   renderMonth();
 }
