@@ -422,7 +422,10 @@ select option{color:#111}
     <div class="status">Press J any time to join the current or next meeting that has a video link.</div>
     <div class="row" style="margin-top:16px">Custom holidays</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <input type="date" id="holidayDate" style="flex:1;min-width:140px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px">
+      <div style="position:relative;flex:1;min-width:140px" id="holidayDateWrap">
+        <input type="text" id="holidayDateDisplay" placeholder="Pick a date" readonly style="width:100%;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px;cursor:pointer">
+        <div id="holidayDatePicker" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:10;background:rgba(18,24,44,.98);border:1px solid var(--edge);border-radius:12px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);backdrop-filter:blur(10px)"></div>
+      </div>
       <input type="text" id="holidayReason" placeholder="Reason (e.g. Birthday, Festival)" style="flex:1;min-width:140px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px">
       <button class="play" id="holidayAdd" style="flex:none">Add</button>
     </div>
@@ -1170,11 +1173,14 @@ if(gWasOn && gcalReady){ gState = 'reconnect'; gTry = Date.now(); calConnect(); 
 calUI();
 
 /* Custom holidays management */
-const holidayDate = $('holidayDate');
+const holidayDateDisplay = $('holidayDateDisplay');
+const holidayDatePicker = $('holidayDatePicker');
+const holidayDateWrap = $('holidayDateWrap');
 const holidayReason = $('holidayReason');
 const holidayAdd = $('holidayAdd');
 const holidayList = $('holidayList');
 const holidayStatus = $('holidayStatus');
+let selectedDate = null; // YYYY-MM-DD
 
 function renderHolidayList(){
   const holidays = store.get('dockHolidays', []) || [];
@@ -1205,18 +1211,192 @@ function renderHolidayList(){
   });
 }
 
-if(holidayDate){
+function buildDatePicker(){
+  const now = new Date();
+  const view = new Date(now.getFullYear(), now.getMonth(), 1);
+  const ws = weekStart();
+  
+  function renderPicker(v){
+    const first = new Date(v.getFullYear(), v.getMonth(), 1);
+    const daysInMonth = new Date(v.getFullYear(), v.getMonth() + 1, 0).getDate();
+    const offset = (first.getDay() - ws + 7) % 7;
+    const todayStr = now.toISOString().slice(0,10);
+    
+    holidayDatePicker.innerHTML = '';
+    
+    // Header with month/year and nav
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.justifyContent = 'space-between';
+    header.style.marginBottom = '8px';
+    const prevBtn = document.createElement('button');
+    prevBtn.textContent = '‹';
+    prevBtn.style.width = '32px';
+    prevBtn.style.height = '32px';
+    prevBtn.style.borderRadius = '50%';
+    prevBtn.style.border = '1px solid var(--edge)';
+    prevBtn.style.background = 'rgba(255,255,255,.06)';
+    prevBtn.style.color = 'var(--ink)';
+    prevBtn.style.cursor = 'pointer';
+    prevBtn.onclick = () => { view.setMonth(view.getMonth() - 1); renderPicker(view); };
+    const nextBtn = document.createElement('button');
+    nextBtn.textContent = '›';
+    nextBtn.style.width = '32px';
+    nextBtn.style.height = '32px';
+    nextBtn.style.borderRadius = '50%';
+    nextBtn.style.border = '1px solid var(--edge)';
+    nextBtn.style.background = 'rgba(255,255,255,.06)';
+    nextBtn.style.color = 'var(--ink)';
+    nextBtn.style.cursor = 'pointer';
+    nextBtn.onclick = () => { view.setMonth(view.getMonth() + 1); renderPicker(view); };
+    const title = document.createElement('span');
+    title.textContent = first.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+    title.style.fontWeight = '500';
+    header.append(prevBtn, title, nextBtn);
+    holidayDatePicker.append(header);
+    
+    // Weekday headers
+    const dowRow = document.createElement('div');
+    dowRow.style.display = 'grid';
+    dowRow.style.gridTemplateColumns = 'repeat(7,1fr)';
+    dowRow.style.textAlign = 'center';
+    dowRow.style.fontSize = '11px';
+    dowRow.style.color = 'var(--dim)';
+    dowRow.style.marginBottom = '4px';
+    for(let i=0;i<7;i++){
+      const d = document.createElement('div');
+      d.textContent = new Date(2023,0,1+(ws+i)%7).toLocaleDateString(undefined,{weekday:'narrow'});
+      dowRow.append(d);
+    }
+    holidayDatePicker.append(dowRow);
+    
+    // Days grid
+    const grid = document.createElement('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(7,1fr)';
+    grid.style.gap = '2px';
+    
+    // Previous month days
+    const prevMonthDays = new Date(v.getFullYear(), v.getMonth(), 0).getDate();
+    for(let i=offset-1;i>=0;i--){
+      const d = document.createElement('button');
+      d.textContent = prevMonthDays - i;
+      d.style.padding = '6px';
+      d.style.border = 'none';
+      d.style.background = 'transparent';
+      d.style.color = 'var(--dim)';
+      d.style.opacity = '0.4';
+      d.style.borderRadius = '8px';
+      d.style.cursor = 'pointer';
+      d.style.fontSize = '13px';
+      const date = new Date(v.getFullYear(), v.getMonth()-1, prevMonthDays - i);
+      d.onclick = () => pickDate(date);
+      grid.append(d);
+    }
+    
+    // Current month days
+    for(let day=1; day<=daysInMonth; day++){
+      const d = document.createElement('button');
+      d.textContent = day;
+      d.style.padding = '6px';
+      d.style.border = 'none';
+      d.style.background = 'transparent';
+      d.style.color = 'var(--ink)';
+      d.style.borderRadius = '8px';
+      d.style.cursor = 'pointer';
+      d.style.fontSize = '13px';
+      const date = new Date(v.getFullYear(), v.getMonth(), day);
+      const iso = date.toISOString().slice(0,10);
+      if(iso === todayStr){
+        d.style.background = 'rgba(25,195,177,.3)';
+        d.style.fontWeight = '600';
+      }
+      if(selectedDate && iso === selectedDate){
+        d.style.background = 'var(--b2)';
+        d.style.color = '#04211e';
+        d.style.fontWeight = '600';
+      }
+      d.onmouseenter = () => { if(iso !== selectedDate && iso !== todayStr) d.style.background = 'rgba(255,255,255,.1)'; };
+      d.onmouseleave = () => { if(iso !== selectedDate && iso !== todayStr) d.style.background = 'transparent'; };
+      d.onclick = () => pickDate(date);
+      grid.append(d);
+    }
+    
+    // Next month days to fill grid
+    const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7;
+    const nextMonthDays = totalCells - offset - daysInMonth;
+    for(let day=1; day<=nextMonthDays; day++){
+      const d = document.createElement('button');
+      d.textContent = day;
+      d.style.padding = '6px';
+      d.style.border = 'none';
+      d.style.background = 'transparent';
+      d.style.color = 'var(--dim)';
+      d.style.opacity = '0.4';
+      d.style.borderRadius = '8px';
+      d.style.cursor = 'pointer';
+      d.style.fontSize = '13px';
+      const date = new Date(v.getFullYear(), v.getMonth()+1, day);
+      d.onclick = () => pickDate(date);
+      grid.append(d);
+    }
+    
+    holidayDatePicker.append(grid);
+  }
+  
+  function pickDate(date){
+    selectedDate = date.toISOString().slice(0,10);
+    const ddmmyyyy = selectedDate.split('-').reverse().join('-');
+    holidayDateDisplay.value = ddmmyyyy;
+    holidayDatePicker.style.display = 'none';
+    holidayDateDisplay.style.borderColor = 'var(--b2)';
+    holidayReason.focus();
+  }
+  
+  renderPicker(view);
+  
+  // Toggle picker on click
+  holidayDateDisplay.onclick = (e) => {
+    e.stopPropagation();
+    if(holidayDatePicker.style.display === 'none'){
+      // Reset view to current month if no date selected, else to selected date's month
+      if(selectedDate){
+        view.setTime(new Date(selectedDate + 'T00:00:00').getTime());
+        view.setDate(1);
+      }else{
+        view.setTime(now.getTime());
+        view.setDate(1);
+      }
+      renderPicker(view);
+      holidayDatePicker.style.display = 'block';
+    }else{
+      holidayDatePicker.style.display = 'none';
+    }
+  };
+  
+  // Close on click outside
+  document.addEventListener('click', (e) => {
+    if(!holidayDateWrap.contains(e.target)){
+      holidayDatePicker.style.display = 'none';
+    }
+  });
+}
+
+if(holidayDateDisplay){
   renderHolidayList();
+  buildDatePicker();
   holidayAdd.onclick = () => {
-    const val = holidayDate.value;
+    if(!selectedDate){ holidayStatus.textContent = 'Pick a date first'; return; }
     const reason = holidayReason.value.trim();
-    if(!val){ holidayStatus.textContent = 'Pick a date first'; return; }
+    const ddmmyyyy = selectedDate.split('-').reverse().join('-');
     const holidays = store.get('dockHolidays', []) || [];
-    const ddmmyyyy = val.split('-').reverse().join('-'); // YYYY-MM-DD -> DD-MM-YYYY
     if(holidays.some(h => h.date === ddmmyyyy)){ holidayStatus.textContent = 'Already added'; return; }
     holidays.push({date: ddmmyyyy, reason});
     store.set('dockHolidays', holidays);
-    holidayDate.value = '';
+    selectedDate = null;
+    holidayDateDisplay.value = '';
+    holidayDateDisplay.style.borderColor = 'var(--edge)';
     holidayReason.value = '';
     renderHolidayList();
     renderMonth();
