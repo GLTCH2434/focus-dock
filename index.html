@@ -200,37 +200,6 @@ select option{color:#111}
 .calgrid .d.today.holiday{box-shadow:none}
 .calgrid .d:hover:not(.out){background:rgba(255,255,255,.12)}
 .status.bad{color:#ff8fab}
-/* Media controller: same glass language as the Favorites button. */
-.media-controls{position:fixed;z-index:3;left:calc(clamp(14px,4vmin,44px) + (100vw - 2 * clamp(14px,4vmin,44px) - clamp(12px,3vmin,32px)) * .287234);bottom:clamp(10px,2.5vmin,26px);transform:translateX(-50%) translateY(5px);
-  display:none;align-items:center;gap:9px;width:min(430px,calc(100vw - 20px));height:clamp(40px,7vmin,56px);box-sizing:border-box;padding:5px 7px 5px 5px;
-  border-radius:999px;background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-  box-shadow:none;overflow:hidden;opacity:0;transform:translateY(5px);transition:opacity .2s ease,transform .2s ease}
-.media-controls.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
-.media-status{position:fixed;z-index:3;left:12px;bottom:12px;max-width:min(360px,calc(100vw - 24px));padding:8px 12px;border:1px solid var(--edge);border-radius:12px;background:rgba(10,15,28,.88);color:var(--dim);font-size:11px;line-height:1.4;backdrop-filter:blur(12px);display:none}
-.media-status.show{display:block}
-.media-controls .m-art-wrap{position:relative;width:calc(clamp(40px,7vmin,56px) - 10px);height:calc(clamp(40px,7vmin,56px) - 10px);min-width:30px;min-height:30px;flex:none;
-  display:grid;place-items:center;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.07);border:1px solid var(--edge)}
-.media-controls .m-art{grid-area:1/1;width:100%;height:100%;object-fit:cover;display:none}
-.media-controls .m-art-wrap:after{content:'♪';grid-area:1/1;font-size:17px;line-height:1;color:var(--dim)}
-.media-controls.has-art .m-art{display:block}.media-controls.has-art .m-art-wrap:after{display:none}
-.media-controls .m-body{min-width:0;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px}
-.media-controls .m-meta{min-width:0;line-height:1.15}
-.media-controls .m-title,.media-controls .m-artist{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.media-controls .m-title{font-size:11.5px;color:var(--ink);font-weight:500;letter-spacing:-.01em}
-.media-controls .m-artist{font-size:9.5px;color:var(--dim);margin-top:2px}
-.media-controls .m-progress{height:2px;width:100%;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-.media-controls .m-progress i{display:block;height:100%;width:0;border-radius:inherit;background:var(--b2);transition:width .5s linear}
-.media-controls .m-actions{display:flex;align-items:center;gap:6px;flex:none}
-/* Compact media controls. */
-.media-controls .m-btn{width:40px;height:40px;min-width:40px;padding:0;display:grid;place-items:center;border-radius:50%;
-  color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--edge);box-sizing:border-box;
-  transition:background .15s,border-color .15s,transform .15s}
-.media-controls .m-btn:hover{background:rgba(255,255,255,.14);border-color:var(--edge);transform:none}
-.media-controls .m-btn:active{transform:scale(.94)}
-.media-controls .m-btn.play{background:var(--glass);border-color:var(--edge)}
-.media-controls .m-btn svg{width:48%;height:48%;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-@media (max-width:560px){.media-controls{left:50%;right:auto;width:min(430px,calc(100vw - 20px));max-width:none}
-  .media-controls .m-meta{max-width:30vw}.media-controls .m-art-wrap{width:34px;height:34px}.media-controls .m-btn{width:40px;height:40px;min-width:40px}.media-controls .m-actions{gap:4px}}
 /* Quick links: bottom-left button + popup panel */
 .bar.bl{top:auto;bottom:clamp(10px,2.5vmin,26px)}
 #linksPanel{position:fixed;z-index:4;left:clamp(10px,2.5vmin,26px);
@@ -356,21 +325,8 @@ select option{color:#111}
 <nav class="bar bl">
   <button id="linksBtn" aria-label="Quick links" aria-expanded="false" title="Quick links (Q)">
     <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg>
-  </button>
+</button>
 </nav>
-<nav class="media-controls" id="mediaControls" aria-label="Media controls">
-  <div class="m-art-wrap"><img class="m-art" id="mediaArt" alt=""></div>
-  <div class="m-body">
-    <div class="m-meta"><span class="m-title" id="mediaTitle"></span><span class="m-artist" id="mediaArtist"></span></div>
-    <div class="m-progress" aria-hidden="true"><i id="mediaProgress"></i></div>
-  </div>
-  <div class="m-actions">
-    <button class="m-btn" id="mediaPrev" aria-label="Previous track" title="Previous track">&lt;</button>
-    <button class="m-btn play" id="mediaPlay" aria-label="Play or pause" title="Play or pause"><svg viewBox="0 0 24 24"><path d="M9 6v12l10-6z"/></svg></button>
-    <button class="m-btn" id="mediaNext" aria-label="Next track" title="Next track">&gt;</button>
-  </div>
-</nav>
-<div class="media-status" id="mediaStatus" role="status" aria-live="polite"></div>
 
 <main class="dock">
   <section class="clock">
@@ -516,9 +472,6 @@ const $ = id => document.getElementById(id);
 /* ============ Shortcuts help panel ============ */
 const SHORTCUTS = [
   ['?', 'Show this help'],
-  ['Space', 'Play / pause media'],
-  ['Ctrl + M', 'Next media track'],
-  ['Ctrl + P', 'Previous media track'],
   ['F', 'Toggle fullscreen'],
   ['Q', 'Toggle quick links'],
   ['S', 'Open or close the menu buttons'],
@@ -1649,73 +1602,6 @@ function addLink(){
 $('lnkAdd').onclick = addLink;
 [$('lnkUrl'), $('lnkName')].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') addLink(); }));
 renderLinks();
-
-/* ============ System media controller (Linux MPRIS bridge) ============ */
-const MEDIA_BRIDGE = 'http://127.0.0.1:8765';   // always plain http: browsers allow http to 127.0.0.1 from an https page, but a local bridge can't serve https
-let mediaState = null;
-function setMediaVisible(show){ $('mediaControls').classList.toggle('show', !!show); }
-function setMediaStatus(message){ const el = $('mediaStatus'); el.textContent = message || ''; el.classList.toggle('show', !!message); }
-function renderMedia(state){
-  const panel = $('mediaControls'), art = $('mediaArt');
-  if(!state || !state.active){ mediaState = null; $('mediaProgress').style.width = '0%'; setMediaVisible(false); return; }
-  mediaState = state;
-  $('mediaTitle').textContent = state.title || 'No title';
-  $('mediaArtist').textContent = state.artist || state.player || '';
-  if(state.art){ art.src = state.art.startsWith('/') ? MEDIA_BRIDGE + state.art + '?v=' + encodeURIComponent(state.title || '') : state.art; panel.classList.add('has-art'); art.onerror = () => panel.classList.remove('has-art'); }
-  else { art.removeAttribute('src'); panel.classList.remove('has-art'); }
-  const length = Number(state.length || 0), position = Number(state.position || 0);
-  const progress = length > 0 ? Math.max(0, Math.min(100, position / length * 100)) : 0;
-  $('mediaProgress').style.width = progress + '%';
-  const play = $('mediaPlay');
-  play.innerHTML = state.playing
-    ? '<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>'
-    : '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>';
-  play.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
-  play.title = state.playing ? 'Pause' : 'Play';
-  setMediaVisible(true);
-}
-async function pollMedia(){
-  try{
-    const r = await fetchTimeout(MEDIA_BRIDGE + '/status', {cache:'no-store'});
-    if(!r.ok) throw new Error('bridge unavailable');
-    const state = await r.json();
-    setMediaStatus('');
-    renderMedia(state);
-  }catch(e){ setMediaVisible(false); mediaState = null; setMediaStatus('Media controls unavailable. Start the Desk Dock media bridge on this computer (127.0.0.1:8765).'); }
-}
-async function mediaCommand(cmd){
-  try{
-    const r = await fetchTimeout(MEDIA_BRIDGE + '/command', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})});
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    setMediaStatus('');
-  }catch(e){ setMediaStatus('Media command failed. Check that the Desk Dock media bridge is running.'); }
-  setTimeout(pollMedia, 150);
-}
-$('mediaPrev').onclick = () => mediaCommand('previous');
-$('mediaPlay').onclick = () => mediaCommand('play-pause');
-$('mediaNext').onclick = () => mediaCommand('next');
-pollMedia();
-setInterval(pollMedia, 1500);
-
-/* Media keyboard shortcuts. Space = play/pause, Ctrl+M = next, Ctrl+P = previous. Ignored while typing. */
-addEventListener('keydown', e => {
-  if(e.repeat || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
-  const mediaKey = e.key.toLowerCase();
-  if(!e.ctrlKey && !e.metaKey && !e.altKey && e.code === 'Space'){
-    e.preventDefault();
-    mediaCommand('play-pause');
-    return;
-  }
-  if(e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && mediaKey === 'm'){
-    e.preventDefault();
-    mediaCommand('next');
-    return;
-  }
-  if(e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && mediaKey === 'p'){
-    e.preventDefault();
-    mediaCommand('previous');
-  }
-});
 
 /* Keyboard shortcuts.
    Q = quick links, S = settings, and while quick links are open a number/letter opens that tile.
