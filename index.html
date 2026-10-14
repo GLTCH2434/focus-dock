@@ -1598,7 +1598,14 @@ function isHoliday(d){
   const ddmmyyyy = String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
   const yyyy = d.getFullYear();
   /* Fixed holidays (add/remove for your locale) */
-  const fixed = {'01-01': 'New Year\'s Day', '12-25': 'Christmas', '12-26': 'Boxing Day'};
+  const fixed = {
+    '01-01': 'New Year\'s Day',
+    '01-26': 'Republic Day',
+    '08-15': 'Independence Day',
+    '10-02': 'Gandhi Jayanti',
+    '12-25': 'Christmas',
+    '12-26': 'Boxing Day'
+  };
   if(fixed[mmdd]) return fixed[mmdd];
   /* Easter-based holidays (Good Friday, Easter Monday) */
   const easter = easterDate(yyyy);
