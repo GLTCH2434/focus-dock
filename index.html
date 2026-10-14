@@ -1089,7 +1089,6 @@ function renderAgenda(){
     const tasks = gTasks.filter(t => t.due === ymd(s) || (n === 0 && t.due < ymd(s)));   // today also shows overdue tasks
     evs.forEach(e => {
       const li = add(e.allDay ? 'All day' : tm(e.start), e.title, '', e.color);
-      if(isNext) firstNext = true;
       if(e.location || e.meet){
         li.classList.add('has-location');
         const tip = document.createElement('div'); tip.className = 'event-tip';
