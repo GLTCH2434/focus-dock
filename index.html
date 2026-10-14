@@ -872,8 +872,9 @@ const gcalReady = !!GCAL_CLIENT_ID && !GCAL_CLIENT_ID.includes('PASTE_');   // f
 let gTok = null;        // access token (Google gives one that lasts about an hour)
 let gExp = 0;           // when that token runs out (ms)
 let gClient = null;     // Google's token helper
-let gEvents = [];       // events from the last refresh
+let gEvents = [];       // events from the last refresh (today + tomorrow)
 let gTasks = [];        // tasks from the last refresh
+let gMonthEvents = {};  // events for viewed month, keyed by 'YYYY-MM'
 let gState = 'off';     // 'off' | 'ok' | 'reconnect' (needs a tap) | 'error'
 let gNext = 0;          // when to refresh next (ms)
 let gTry = 0;           // when we last tried to reconnect by ourselves (ms)
@@ -1025,6 +1026,41 @@ async function refreshCal(){
     gNext = Date.now() + 60000;
   }
   calUI();
+}
+
+/* Fetch events for a specific month from Google Calendar (for the month calendar) */
+async function fetchMonthEvents(monthDate){
+  if(!gTok || Date.now() > gExp || gState !== 'ok') return false;
+  const key = monthDate.getFullYear() + '-' + String(monthDate.getMonth() + 1).padStart(2, '0');
+  if(gMonthEvents[key]) return false; // already cached, no need to re-render
+  try{
+    const all = (await gGet('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50')).items || [];
+    const selected = all.filter(c => c.selected);
+    const holiday = all.filter(c => !c.selected && /holiday/i.test(c.id + ' ' + (c.description || '')));
+    const cals = [...selected, ...holiday].slice(0, 10);
+    const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const last = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
+    const q = 'singleEvents=true&orderBy=startTime&maxResults=250&timeMin=' + encodeURIComponent(first.toISOString())
+            + '&timeMax=' + encodeURIComponent(last.toISOString());
+    const lists = await Promise.all(cals.map(c =>
+      gGet('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id) + '/events?' + q)
+        .then(j => (j.items || [])
+          .filter(e => e.status !== 'cancelled' && !(e.attendees || []).some(a => a.self && a.responseStatus === 'declined'))
+          .map(e => ({
+            title: e.summary || '(no title)',
+            allDay: !!e.start.date,
+            start: new Date(e.start.dateTime || e.start.date + 'T00:00:00'),
+            end: new Date(e.end.dateTime || e.end.date + 'T00:00:00'),
+            color: c.backgroundColor,
+            isHolidayCal: /holiday/i.test(c.id + ' ' + (c.description || ''))
+          }))
+        .catch(() => [])));
+    gMonthEvents[key] = lists.flat().sort((a, b) => a.start - b.start);
+    return true; // new data fetched
+  }catch(err){
+    // silent fail for month fetch
+    return false;
+  }
 }
 
 /* Draw today's and tomorrow's events and tasks under the clock */
@@ -1645,6 +1681,10 @@ function renderMonth(){
   const g = $('calGrid'); g.innerHTML = '';
   const first = new Date(calView.getFullYear(), calView.getMonth(), 1), ws = weekStart();
   $('calTitle').textContent = first.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+  
+  // Fetch Google Calendar events for this month (async, re-renders only if new data)
+  fetchMonthEvents(first).then(fetched => { if(fetched) renderMonth(); });
+  
   const cell = (cls, text) => { const el = document.createElement('div'); el.className = cls; el.textContent = text; g.append(el); };
   for(let i = 0; i < 7; i++)                          // weekday letters (1 Jan 2023 was a Sunday)
     cell('dow', new Date(2023, 0, 1 + (ws + i) % 7).toLocaleDateString(undefined, {weekday:'narrow'}));
@@ -1652,20 +1692,31 @@ function renderMonth(){
   const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
   const total = Math.ceil((offset + daysInMonth) / 7) * 7;   // fill whole weeks
   const today = new Date().toDateString();
+  
+  // Get cached Google Calendar events for this month
+  const key = first.getFullYear() + '-' + String(first.getMonth() + 1).padStart(2, '0');
+  const monthEvents = gMonthEvents[key] || [];
+  
   for(let i = 0; i < total; i++){
     const d = new Date(first.getFullYear(), first.getMonth(), 1 - offset + i);
     const isToday = d.toDateString() === today;
     const hol = isHoliday(d);
+    
+    // Check for Google Calendar holiday events (all-day events from holiday calendars)
+    const gcalHols = monthEvents.filter(e => e.allDay && e.isHolidayCal && sameDay(e.start, d));
+    const gcalHol = gcalHols[0];
+    
     const isSunday = d.getDay() === 0;
     let cls = 'd';
     if(d.getMonth() !== first.getMonth()) cls += ' out';
     if(isToday) cls += ' today';
-    if(hol) cls += ' holiday';
+    if(hol || gcalHol) cls += ' holiday';
     if(isSunday) cls += ' sunday';
     const el = document.createElement('div');
     el.className = cls;
     el.textContent = d.getDate();
-    if(hol) el.title = hol;
+    const title = hol || (gcalHol ? gcalHol.title : '');
+    if(title) el.title = title;
     g.append(el);
   }
 }
