@@ -172,9 +172,7 @@ select option{color:#111}
 .agenda li span{overflow:hidden;text-overflow:ellipsis}
 .agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .agenda li.has-location{cursor:default}
-.agenda li.next-event{color:var(--ink);font-weight:500}
-.agenda li.next-event b{color:var(--b2)}
-.agenda li.next-event span:after{content:"  · NEXT";font-size:.68em;letter-spacing:.08em;color:var(--b2);font-weight:600}
+
 /* Event details are promoted to a fixed popup so the scrolling agenda cannot clip them. */
 .event-tip{position:fixed;z-index:100;display:none;align-items:center;gap:9px;width:max-content;max-width:min(420px,70vw);padding:9px 11px;border:1px solid var(--edge);border-radius:10px;background:rgba(18,24,44,.96);color:var(--ink);font-size:.72em;font-weight:400;line-height:1.35;white-space:normal;box-shadow:0 10px 30px rgba(0,0,0,.3);pointer-events:auto;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .event-tip.show{display:flex}
@@ -200,10 +198,9 @@ select option{color:#111}
 .calgrid .d{justify-self:center;display:grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%;cursor:pointer}
 .calgrid .d.out{color:var(--dim);opacity:.45}
 .calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
-.calgrid .d.has-events{background:#f5b94a;color:var(--bg);font-weight:600}
-.calgrid .d.holiday{background:#ff6f91;color:var(--bg);font-weight:600}
-.calgrid .d.today.has-events{box-shadow:inset 0 0 0 2px #f5b94a}
-.calgrid .d.today.holiday{box-shadow:inset 0 0 0 2px #ff6f91}
+.calgrid .d.holiday{color:#ff6f91;font-weight:600;background:none}
+.calgrid .d.sunday{color:#ff6f91}
+.calgrid .d.today.holiday{box-shadow:none}
 .calgrid .d:hover:not(.out){background:rgba(255,255,255,.12)}
 .status.bad{color:#ff8fab}
 /* Media controller: same glass language as the Favorites button. */
@@ -1096,8 +1093,7 @@ function renderAgenda(){
     const evs = gEvents.filter(e => e.start < e2 && e.end > s && e.end > now);
     const tasks = gTasks.filter(t => t.due === ymd(s) || (n === 0 && t.due < ymd(s)));   // today also shows overdue tasks
     evs.forEach(e => {
-      const isNext = !firstNext && e.start > now && !e.allDay;
-      const li = add(e.allDay ? 'All day' : tm(e.start), e.title, isNext ? 'next-event' : '', e.color);
+      const li = add(e.allDay ? 'All day' : tm(e.start), e.title, '', e.color);
       if(isNext) firstNext = true;
       if(e.location || e.meet){
         li.classList.add('has-location');
@@ -1450,13 +1446,13 @@ function renderMonth(){
   for(let i = 0; i < total; i++){
     const d = new Date(first.getFullYear(), first.getMonth(), 1 - offset + i);
     const isToday = d.toDateString() === today;
-    const hasEv = gEvents.some(e => sameDay(e.start, d));
     const hol = isHoliday(d);
+    const isSunday = d.getDay() === 0;
     let cls = 'd';
     if(d.getMonth() !== first.getMonth()) cls += ' out';
     if(isToday) cls += ' today';
-    if(hasEv) cls += ' has-events';
     if(hol) cls += ' holiday';
+    if(isSunday) cls += ' sunday';
     const el = document.createElement('div');
     el.className = cls;
     el.textContent = d.getDate();
