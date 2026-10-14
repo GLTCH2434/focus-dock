@@ -196,7 +196,7 @@ select option{color:#111}
 .calgrid .d.out{color:var(--dim);opacity:.45}
 .calgrid .d.today{background:var(--ink);color:var(--bg);font-weight:600}
 .calgrid .d.holiday{color:#ff4444;font-weight:600;background:none}
-.calgrid .d.sunday{color:#ff6f91}
+.calgrid .d.sunday{color:#ff4444}
 .calgrid .d.today.holiday{box-shadow:none}
 .calgrid .d:hover:not(.out){background:rgba(255,255,255,.12)}
 .status.bad{color:#ff8fab}
@@ -424,7 +424,7 @@ select option{color:#111}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <div style="position:relative;flex:1;min-width:140px" id="holidayDateWrap">
         <input type="text" id="holidayDateDisplay" placeholder="Pick a date" readonly style="width:100%;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px;cursor:pointer">
-        <div id="holidayDatePicker" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:10;background:rgba(18,24,44,.98);border:1px solid var(--edge);border-radius:12px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);backdrop-filter:blur(10px)"></div>
+        <div id="holidayDatePicker" style="display:none;position:fixed;z-index:100;background:rgba(18,24,44,.98);border:1px solid var(--edge);border-radius:12px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);backdrop-filter:blur(10px);width:280px"></div>
       </div>
       <input type="text" id="holidayReason" placeholder="Reason (e.g. Birthday, Festival)" style="flex:1;min-width:140px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px">
       <button class="play" id="holidayAdd" style="flex:none">Add</button>
