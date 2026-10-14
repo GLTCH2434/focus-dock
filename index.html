@@ -420,9 +420,10 @@ select option{color:#111}
       </select></label>
     <button class="ghost" id="alertTest">Test the alert</button>
     <div class="status">Press J any time to join the current or next meeting that has a video link.</div>
-    <div class="row" style="margin-top:16px">Custom holidays (DD-MM-YYYY)</div>
+    <div class="row" style="margin-top:16px">Custom holidays</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <input type="date" id="holidayDate" style="flex:1;min-width:180px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px">
+      <input type="date" id="holidayDate" style="flex:1;min-width:140px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px">
+      <input type="text" id="holidayReason" placeholder="Reason (e.g. Birthday, Festival)" style="flex:1;min-width:140px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px">
       <button class="play" id="holidayAdd" style="flex:none">Add</button>
     </div>
     <div id="holidayList" style="margin-top:8px;display:flex;flex-direction:column;gap:4px;max-height:150px;overflow:auto"></div>
@@ -1170,6 +1171,7 @@ calUI();
 
 /* Custom holidays management */
 const holidayDate = $('holidayDate');
+const holidayReason = $('holidayReason');
 const holidayAdd = $('holidayAdd');
 const holidayList = $('holidayList');
 const holidayStatus = $('holidayStatus');
@@ -1186,7 +1188,7 @@ function renderHolidayList(){
     row.style.background = 'rgba(255,255,255,.05)';
     row.style.borderRadius = '8px';
     const span = document.createElement('span');
-    span.textContent = h;
+    span.textContent = h.date + (h.reason ? ' — ' + h.reason : '');
     span.style.flex = '1';
     const rm = document.createElement('button');
     rm.textContent = '✕';
@@ -1207,16 +1209,18 @@ if(holidayDate){
   renderHolidayList();
   holidayAdd.onclick = () => {
     const val = holidayDate.value;
+    const reason = holidayReason.value.trim();
     if(!val){ holidayStatus.textContent = 'Pick a date first'; return; }
     const holidays = store.get('dockHolidays', []) || [];
     const ddmmyyyy = val.split('-').reverse().join('-'); // YYYY-MM-DD -> DD-MM-YYYY
-    if(holidays.includes(ddmmyyyy)){ holidayStatus.textContent = 'Already added'; return; }
-    holidays.push(ddmmyyyy);
+    if(holidays.some(h => h.date === ddmmyyyy)){ holidayStatus.textContent = 'Already added'; return; }
+    holidays.push({date: ddmmyyyy, reason});
     store.set('dockHolidays', holidays);
     holidayDate.value = '';
+    holidayReason.value = '';
     renderHolidayList();
     renderMonth();
-    holidayStatus.textContent = 'Added ' + ddmmyyyy;
+    holidayStatus.textContent = 'Added ' + ddmmyyyy + (reason ? ' — ' + reason : '');
   };
 }
 
@@ -1399,9 +1403,10 @@ function isHoliday(d){
   const easterMon = new Date(easter); easterMon.setDate(easter.getDate()+1);
   if(sameDay(d, goodFri)) return 'Good Friday';
   if(sameDay(d, easterMon)) return 'Easter Monday';
-  /* User-defined holidays from localStorage (format: 'DD-MM-YYYY') */
+  /* User-defined holidays from localStorage (format: [{date: 'DD-MM-YYYY', reason: '...'}]) */
   const custom = store.get('dockHolidays', []);
-  if(custom.includes(ddmmyyyy)) return 'Custom holiday';
+  const found = custom.find(h => h.date === ddmmyyyy);
+  if(found) return found.reason || 'Custom holiday';
   return false;
 }
 
