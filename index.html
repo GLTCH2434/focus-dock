@@ -172,6 +172,9 @@ select option{color:#111}
 .agenda li span{overflow:hidden;text-overflow:ellipsis}
 .agenda li.link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .agenda li.has-location{cursor:default}
+.agenda li.next-event{color:var(--ink);font-weight:500}
+.agenda li.next-event b{color:var(--b2)}
+.agenda li.next-event span:after{content:"  · NEXT";font-size:.68em;letter-spacing:.08em;color:var(--b2);font-weight:600}
 /* Event details are promoted to a fixed popup so the scrolling agenda cannot clip them. */
 .event-tip{position:fixed;z-index:100;display:none;align-items:center;gap:9px;width:max-content;max-width:min(420px,70vw);padding:9px 11px;border:1px solid var(--edge);border-radius:10px;background:rgba(18,24,44,.96);color:var(--ink);font-size:.72em;font-weight:400;line-height:1.35;white-space:normal;box-shadow:0 10px 30px rgba(0,0,0,.3);pointer-events:auto;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .event-tip.show{display:flex}
@@ -209,6 +212,8 @@ select option{color:#111}
   border-radius:999px;background:var(--glass);border:1px solid var(--edge);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   box-shadow:none;overflow:hidden;opacity:0;transform:translateY(5px);transition:opacity .2s ease,transform .2s ease}
 .media-controls.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+.media-status{position:fixed;z-index:3;left:12px;bottom:12px;max-width:min(360px,calc(100vw - 24px));padding:8px 12px;border:1px solid var(--edge);border-radius:12px;background:rgba(10,15,28,.88);color:var(--dim);font-size:11px;line-height:1.4;backdrop-filter:blur(12px);display:none}
+.media-status.show{display:block}
 .media-controls .m-art-wrap{position:relative;width:calc(clamp(40px,7vmin,56px) - 10px);height:calc(clamp(40px,7vmin,56px) - 10px);min-width:30px;min-height:30px;flex:none;
   display:grid;place-items:center;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.07);border:1px solid var(--edge)}
 .media-controls .m-art{grid-area:1/1;width:100%;height:100%;object-fit:cover;display:none}
@@ -371,6 +376,7 @@ select option{color:#111}
     <button class="m-btn" id="mediaNext" aria-label="Next track" title="Next track">&gt;</button>
   </div>
 </nav>
+<div class="media-status" id="mediaStatus" role="status" aria-live="polite"></div>
 
 <main class="dock">
   <section class="clock">
@@ -841,7 +847,7 @@ fRender();
 
 /* ============ The one menu: open/close + tabs ============ */
 const TAB_NAMES = {focus:'Focus timer', noise:'White noise', colors:'Blob colours', cal:'Google Calendar', weather:'Weather', world:'World clock'};
-const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather', 'world'];     // order of the round buttons (keys 1 to 5)
+const TAB_ORDER = ['focus', 'noise', 'colors', 'cal', 'weather', 'world'];     // order of the round buttons (keys 1 to 6)
 
 /* Keeps the round buttons in step: the open tool's button is highlighted, the menu button shows "expanded" */
 function syncBar(){
@@ -945,11 +951,11 @@ function initGcalClient(){
     client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE,
     callback: r => {
       gDone();
-      if(!r || r.error || !r.access_token){ gErr = (r && r.error) || 'no token returned'; gState = 'reconnect'; return calUI(); }
+      if(!r || r.error || !r.access_token){ gErr = (r && (r.error_description || r.error)) || 'Google returned no access token'; gState = 'error'; return calUI(); }
       gTok = r.access_token; gExp = Date.now() + (r.expires_in - 120) * 1000;
       gErr = ''; gWasOn = true; store.set('dockGcal', true); gState = 'ok'; refreshCal();
     },
-    error_callback: err => { gDone(); gErr = (err && err.type) || 'unknown'; gState = 'reconnect'; calUI(); }   // popup blocked or closed
+    error_callback: err => { gDone(); gErr = (err && (err.message || err.type)) || 'Google sign-in popup failed'; gState = 'error'; calUI(); }   // popup blocked or closed
   });
 }
 /* Ask Google for a token. Must run inside a tap/click, or the browser blocks the popup. */
@@ -976,7 +982,13 @@ function calDisconnect(){
 async function gGet(url){
   const r = await fetch(url, {headers: {Authorization: 'Bearer ' + gTok}});
   if(r.status === 401){ gTok = null; throw new Error('expired'); }
-  if(!r.ok) throw new Error('HTTP ' + r.status);
+  if(!r.ok){
+    let detail = '';
+    try{ const body = await r.json(); detail = body?.error?.message || body?.error_description || ''; }catch(e){}
+    if(r.status === 403) throw new Error('HTTP 403 — API disabled, permission missing, or access blocked' + (detail ? ': ' + detail : ''));
+    if(r.status === 400) throw new Error('HTTP 400 — Google rejected the request' + (detail ? ': ' + detail : ''));
+    throw new Error('HTTP ' + r.status + (detail ? ' — ' + detail : ''));
+  }
   return r.json();
 }
 
@@ -1021,7 +1033,9 @@ async function refreshCal(){
     }catch(e){ gTasks = []; }                                            // Tasks failing doesn't break the calendar
     gState = 'ok'; gErr = ''; gUpdated = new Date(); gNext = Date.now() + 5 * 60000;
   }catch(err){
-    gState = err.message === 'expired' ? 'reconnect' : 'error'; gErr = err.message === 'expired' ? '' : err.message; gNext = Date.now() + 60000;
+    gState = err.message === 'expired' ? 'reconnect' : 'error';
+    gErr = err.message === 'expired' ? '' : err.message;
+    gNext = Date.now() + 60000;
   }
   calUI();
 }
@@ -1044,7 +1058,7 @@ function renderAgenda(){
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let firstNext = false;                                   // the first event still to come gets highlighted
+  let firstNext = false;                                   // highlight only the next event that has not started
   [0, 1].forEach(n => {                                    // 0 = today, 1 = tomorrow
     const s = new Date(todayStart); s.setDate(s.getDate() + n);
     const e2 = new Date(s); e2.setDate(e2.getDate() + 1);
@@ -1052,7 +1066,9 @@ function renderAgenda(){
     const evs = gEvents.filter(e => e.start < e2 && e.end > s && e.end > now);
     const tasks = gTasks.filter(t => t.due === ymd(s) || (n === 0 && t.due < ymd(s)));   // today also shows overdue tasks
     evs.forEach(e => {
-      const li = add(e.allDay ? 'All day' : tm(e.start), e.title, '', e.color);
+      const isNext = !firstNext && e.start > now && !e.allDay;
+      const li = add(e.allDay ? 'All day' : tm(e.start), e.title, isNext ? 'next-event' : '', e.color);
+      if(isNext) firstNext = true;
       if(e.location || e.meet){
         li.classList.add('has-location');
         const tip = document.createElement('div'); tip.className = 'event-tip';
@@ -1154,14 +1170,15 @@ function calUI(){
   st.textContent = !gcalReady ? 'Setup needed: paste your Google client ID into config.js first.'
     : gState === 'ok' ? 'Connected. Updated ' + tm(gUpdated)
     : gState === 'reconnect' ? 'Needs one tap to reconnect (Google sign-ins last about an hour).'
-    : gState === 'error' ? "Couldn't reach Google Calendar, retrying." : '';
+    : gState === 'error' ? "Google Calendar connection failed. Check the error below." : '';
   const bad = !gcalReady || gState === 'error' || (!!gErr && gErr !== 'popup_failed_to_open' && gState !== 'ok');
   if(gErr && gErr !== 'popup_failed_to_open' && gState !== 'ok') st.textContent += ' Error: ' + gErr;
   if(gMsg) st.textContent = gMsg;
   st.classList.toggle('bad', bad || (!!gMsg && gMsg.startsWith('No sign-in')));
   /* what this page looks like to Google: the origin must exactly match an Authorized JavaScript origin */
-  $('calInfo').textContent = 'This page: ' + location.origin + (window.isSecureContext ? '' : ' (NOT a secure https page)')
-    + ' · client ID ' + (gcalReady ? 'found' : 'missing');
+  $('calInfo').textContent = 'This page: ' + location.origin + (window.isSecureContext ? '' : ' (not a secure context; use localhost or HTTPS)')
+    + ' · client ID ' + (gcalReady ? 'found' : 'missing')
+    + (gErr && /origin|redirect_uri|unauthorized_client|client_id|access_denied/i.test(gErr) ? ' · Check Google Cloud OAuth settings: add this exact origin and enable Calendar API + Tasks API.' : '');
   renderAgenda();
   renderMonth();
 }
@@ -1283,10 +1300,11 @@ async function refreshWx(){
       + (wxUnit === 'f' ? '&temperature_unit=fahrenheit' : ''));
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
+    if(!j.current || !j.daily || !Array.isArray(j.daily.temperature_2m_max) || !Array.isArray(j.daily.temperature_2m_min)) throw new Error(j.reason || 'Weather response was incomplete');
     wxData = {t: j.current.temperature_2m, code: j.current.weather_code, hi: j.daily.temperature_2m_max[0], lo: j.daily.temperature_2m_min[0]};
     wxNext = Date.now() + 30 * 60000;                                // refresh every 30 minutes
     $('wxStatus').textContent = 'Using ' + wxPlace.name + '. Updated ' + tm(new Date());
-  }catch(e){ wxNext = Date.now() + 5 * 60000; $('wxStatus').textContent = "Couldn't load the weather (" + e.message + "), retrying."; }
+  }catch(e){ wxNext = Date.now() + 5 * 60000; $('wxStatus').textContent = "Couldn't load weather: " + e.message + '. Check your connection, then retry.'; }
   renderWx();
 }
 function setPlace(p){
@@ -1299,6 +1317,7 @@ async function wxSearch(){
   $('wxStatus').textContent = 'Searching...';
   try{
     const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json');
+    if(!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
     const box = $('wxRes'); box.innerHTML = '';
     (j.results || []).forEach(pl => {
@@ -1308,7 +1327,7 @@ async function wxSearch(){
       box.append(b);
     });
     $('wxStatus').textContent = (j.results && j.results.length) ? 'Pick your place:' : 'No place found. Try another spelling.';
-  }catch(e){ $('wxStatus').textContent = "Couldn't search (" + e.message + ")."; }
+  }catch(e){ $('wxStatus').textContent = "City search failed: " + e.message + '. Check your connection and retry.'; }
 }
 $('wxSearch').onclick = wxSearch;
 $('wxCity').addEventListener('keydown', e => { if(e.key === 'Enter') wxSearch(); });
@@ -1523,14 +1542,7 @@ function cleanUrl(raw){
 const hostOf = u => { try{ return new URL(u).hostname.replace(/^www\./, ''); }catch(e){ return u; } };
 function saveLinks(){ store.set('dockLinks', links); renderLinks(); }
 
-/* ----- Opening links in a separate window, away from the dock -----
-   A normal link would open a new TAB in the dock's own window and push the dock out of view.
-   Instead we open a small pop-up WINDOW. Set this to false if you want a brand new window
-   for every link instead of reusing one companion window. */
-const REUSE_LINK_WINDOW = true;
-
-
-/* Opens the address in a pop-up window sized to 85% of the target screen. Returns false if the browser blocked it. */
+/* Open links in a new browser tab so the dock itself stays available. Returns false if blocked. */
 function openAway(url){
   /* Open links as normal browser tabs instead of popup windows. */
   const win = window.open(url, '_blank');
@@ -1616,6 +1628,7 @@ renderLinks();
 const MEDIA_BRIDGE = 'http://127.0.0.1:8765';
 let mediaState = null;
 function setMediaVisible(show){ $('mediaControls').classList.toggle('show', !!show); }
+function setMediaStatus(message){ const el = $('mediaStatus'); el.textContent = message || ''; el.classList.toggle('show', !!message); }
 function renderMedia(state){
   const panel = $('mediaControls'), art = $('mediaArt');
   if(!state || !state.active){ mediaState = null; $('mediaProgress').style.width = '0%'; setMediaVisible(false); return; }
@@ -1639,11 +1652,17 @@ async function pollMedia(){
   try{
     const r = await fetch(MEDIA_BRIDGE + '/status', {cache:'no-store'});
     if(!r.ok) throw new Error('bridge unavailable');
-    renderMedia(await r.json());
-  }catch(e){ setMediaVisible(false); mediaState = null; }
+    const state = await r.json();
+    setMediaStatus('');
+    renderMedia(state);
+  }catch(e){ setMediaVisible(false); mediaState = null; setMediaStatus('Media controls unavailable. Start the Desk Dock media bridge on this computer (127.0.0.1:8765).'); }
 }
 async function mediaCommand(cmd){
-  try{ await fetch(MEDIA_BRIDGE + '/command', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})}); }catch(e){}
+  try{
+    const r = await fetch(MEDIA_BRIDGE + '/command', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    setMediaStatus('');
+  }catch(e){ setMediaStatus('Media command failed. Check that the Desk Dock media bridge is running.'); }
   setTimeout(pollMedia, 150);
 }
 $('mediaPrev').onclick = () => mediaCommand('previous');
@@ -1652,8 +1671,7 @@ $('mediaNext').onclick = () => mediaCommand('next');
 pollMedia();
 setInterval(pollMedia, 1500);
 
-/* Media keyboard shortcuts. Keep these separate so Ctrl+P does not fall through to browser print.
-   Space = play/pause, Ctrl+N = next, Ctrl+P = previous. Ignored while typing. */
+/* Media keyboard shortcuts. Space = play/pause, Ctrl+M = next, Ctrl+P = previous. Ignored while typing. */
 addEventListener('keydown', e => {
   if(e.repeat || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
   const mediaKey = e.key.toLowerCase();
