@@ -343,7 +343,9 @@ select option{color:#111}
   <div class="side">
     <section class="cal glass" aria-label="Calendar">
       <div class="calhead">
-        <span id="calTitle"></span>
+        <button id="calPrev" aria-label="Previous month" title="Previous month" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--edge);background:rgba(255,255,255,.06);display:grid;place-items:center;color:var(--ink);cursor:pointer">&larr;</button>
+        <span id="calTitle" style="flex:1;text-align:center"></span>
+        <button id="calNext" aria-label="Next month" title="Next month" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--edge);background:rgba(255,255,255,.06);display:grid;place-items:center;color:var(--ink);cursor:pointer">&rarr;</button>
       </div>
       <div class="calgrid" id="calGrid"></div>
     </section>
@@ -1452,6 +1454,10 @@ function renderMonth(){
     g.append(el);
   }
 }
+
+/* Calendar month navigation */
+$('calPrev').onclick = () => { calView.setMonth(calView.getMonth() - 1); renderMonth(); };
+$('calNext').onclick = () => { calView.setMonth(calView.getMonth() + 1); renderMonth(); };
 
 /* Show events for a specific day in a popup */
 function showDayEvents(d){
