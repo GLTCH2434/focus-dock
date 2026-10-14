@@ -592,6 +592,9 @@ async function fetchTimeout(url, options = {}, timeout = 8000){
 let use24 = store.get('dock24', false);
 let endAt = null;                       // when the sleep timer should stop the noise (ms), or null
 
+let calView = new Date();
+let worldClocks = [];
+
 function tick(){
   const d = new Date();
   let h = d.getHours();
@@ -1391,7 +1394,6 @@ refreshWx();
 /* ============ Month calendar ============
    A plain month grid with today highlighted. Arrows change month; clicking the
    month name jumps back to this month. */
-let calView = new Date();        // the month being shown (always the 1st of that month)
 let lastDay = '';                // used to notice when midnight passes
 
 /* Holiday detection: checks if a date is a holiday.
@@ -1755,7 +1757,7 @@ addEventListener('keydown', e => {
 });
 /* ============ World clock ============ */
 const WC_KEY = 'dockWorldClocks';
-let worldClocks = store.get(WC_KEY, []);
+worldClocks = store.get(WC_KEY, []);
 if(!Array.isArray(worldClocks)) worldClocks = [];
 
 /* Friendly city names mapped to IANA time zones. No API is needed for suggestions. */
