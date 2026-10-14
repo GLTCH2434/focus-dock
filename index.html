@@ -951,11 +951,11 @@ function initGcalClient(){
     client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPE,
     callback: r => {
       gDone();
-      if(!r || r.error || !r.access_token){ gErr = (r && (r.error_description || r.error)) || 'Google returned no access token'; gState = 'error'; return calUI(); }
+      if(!r || r.error || !r.access_token){ gErr = (r && (r.error_description || r.error)) || 'Google returned no access token'; gState = 'reconnect'; return calUI(); }
       gTok = r.access_token; gExp = Date.now() + (r.expires_in - 120) * 1000;
       gErr = ''; gWasOn = true; store.set('dockGcal', true); gState = 'ok'; refreshCal();
     },
-    error_callback: err => { gDone(); gErr = (err && (err.message || err.type)) || 'Google sign-in popup failed'; gState = 'error'; calUI(); }   // popup blocked or closed
+    error_callback: err => { gDone(); gErr = (err && (err.message || err.type)) || 'Google sign-in popup failed'; gState = 'reconnect'; calUI(); }   // popup blocked or closed
   });
 }
 /* Ask Google for a token. Must run inside a tap/click, or the browser blocks the popup. */
