@@ -1451,9 +1451,6 @@ function renderMonth(){
     const el = document.createElement('div');
     el.className = cls;
     el.textContent = d.getDate();
-    if(!el.classList.contains('out')){
-      el.onclick = () => showDayEvents(d);
-    }
     g.append(el);
   }
 }
