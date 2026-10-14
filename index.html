@@ -418,9 +418,12 @@ select option{color:#111}
       </select></label>
     <button class="ghost" id="alertTest">Test the alert</button>
     <div class="status">Press J any time to join the current or next meeting that has a video link.</div>
-    <div class="row" style="margin-top:16px">Custom holidays (YYYY-MM-DD or MM-DD, one per line)</div>
-    <textarea id="holidayInput" style="width:100%;min-height:80px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px;resize:vertical"></textarea>
-    <button class="ghost" id="holidaySave">Save holidays</button>
+    <div class="row" style="margin-top:16px">Custom holidays (DD-MM-YYYY)</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input type="date" id="holidayDate" style="flex:1;min-width:180px;padding:10px;border-radius:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--edge);font-family:inherit;font-size:13px">
+      <button class="play" id="holidayAdd" style="flex:none">Add</button>
+    </div>
+    <div id="holidayList" style="margin-top:8px;display:flex;flex-direction:column;gap:4px;max-height:150px;overflow:auto"></div>
     <div class="status" id="holidayStatus"></div>
   </section>
 
@@ -1164,15 +1167,54 @@ if(gWasOn && gcalReady){ gState = 'reconnect'; gTry = Date.now(); calConnect(); 
 calUI();
 
 /* Custom holidays management */
-const holidayInput = $('holidayInput');
+const holidayDate = $('holidayDate');
+const holidayAdd = $('holidayAdd');
+const holidayList = $('holidayList');
 const holidayStatus = $('holidayStatus');
-if(holidayInput){
-  holidayInput.value = (store.get('dockHolidays', []) || []).join('\n');
-  $('holidaySave').onclick = () => {
-    const lines = holidayInput.value.split('\n').map(s => s.trim()).filter(Boolean);
-    store.set('dockHolidays', lines);
-    holidayStatus.textContent = 'Saved ' + lines.length + ' holiday(s)';
+
+function renderHolidayList(){
+  const holidays = store.get('dockHolidays', []) || [];
+  holidayList.innerHTML = '';
+  holidays.forEach((h, i) => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '8px';
+    row.style.padding = '6px 8px';
+    row.style.background = 'rgba(255,255,255,.05)';
+    row.style.borderRadius = '8px';
+    const span = document.createElement('span');
+    span.textContent = h;
+    span.style.flex = '1';
+    const rm = document.createElement('button');
+    rm.textContent = '✕';
+    rm.style.padding = '2px 8px';
+    rm.style.fontSize = '11px';
+    rm.onclick = () => {
+      holidays.splice(i, 1);
+      store.set('dockHolidays', holidays);
+      renderHolidayList();
+      renderMonth();
+    };
+    row.append(span, rm);
+    holidayList.append(row);
+  });
+}
+
+if(holidayDate){
+  renderHolidayList();
+  holidayAdd.onclick = () => {
+    const val = holidayDate.value;
+    if(!val){ holidayStatus.textContent = 'Pick a date first'; return; }
+    const holidays = store.get('dockHolidays', []) || [];
+    const ddmmyyyy = val.split('-').reverse().join('-'); // YYYY-MM-DD -> DD-MM-YYYY
+    if(holidays.includes(ddmmyyyy)){ holidayStatus.textContent = 'Already added'; return; }
+    holidays.push(ddmmyyyy);
+    store.set('dockHolidays', holidays);
+    holidayDate.value = '';
+    renderHolidayList();
     renderMonth();
+    holidayStatus.textContent = 'Added ' + ddmmyyyy;
   };
 }
 
@@ -1340,11 +1382,11 @@ refreshWx();
 let lastDay = '';                // used to notice when midnight passes
 
 /* Holiday detection: checks if a date is a holiday.
-   Supports fixed dates (MM-DD), Easter-based offsets, and custom user holidays.
+   Supports fixed dates (MM-DD), Easter-based offsets, and custom user holidays (DD-MM-YYYY).
    Returns the holiday name if it's a holiday, otherwise false. */
 function isHoliday(d){
   const mmdd = String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  const ddmm = String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0');
+  const ddmmyyyy = String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
   const yyyy = d.getFullYear();
   /* Fixed holidays (add/remove for your locale) */
   const fixed = {'01-01': 'New Year\'s Day', '12-25': 'Christmas', '12-26': 'Boxing Day'};
@@ -1355,9 +1397,9 @@ function isHoliday(d){
   const easterMon = new Date(easter); easterMon.setDate(easter.getDate()+1);
   if(sameDay(d, goodFri)) return 'Good Friday';
   if(sameDay(d, easterMon)) return 'Easter Monday';
-  /* User-defined holidays from localStorage (format: 'YYYY-MM-DD', 'MM-DD', or 'DD-MM') */
+  /* User-defined holidays from localStorage (format: 'DD-MM-YYYY') */
   const custom = store.get('dockHolidays', []);
-  if(custom.includes(mmdd) || custom.includes(ddmm) || custom.includes(yyyy+'-'+mmdd)) return 'Custom holiday';
+  if(custom.includes(ddmmyyyy)) return 'Custom holiday';
   return false;
 }
 
