@@ -1054,6 +1054,7 @@ async function fetchMonthEvents(monthDate){
             color: c.backgroundColor,
             isHolidayCal: /holiday/i.test(c.id + ' ' + (c.description || ''))
           }))
+        )  // close j => ( implicit return paren
         .catch(() => [])));
     gMonthEvents[key] = lists.flat().sort((a, b) => a.start - b.start);
     return true; // new data fetched
