@@ -580,6 +580,14 @@ const store = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
 
+/* fetch with timeout — prevents hanging requests */
+async function fetchTimeout(url, options = {}, timeout = 8000){
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), timeout);
+  try{ return await fetch(url, {...options, signal: ctrl.signal}); }
+  finally{ clearTimeout(id); }
+}
+
 /* ============ Clock + date ============ */
 let use24 = store.get('dock24', false);
 let endAt = null;                       // when the sleep timer should stop the noise (ms), or null
@@ -817,6 +825,7 @@ function finish(){
     fMode = done.n % 4 === 0 ? 'long' : 'break';
   } else fMode = 'focus';
   fLeft = mins[fMode] * 60000; fReady = true;                 // next session waits for you to start it
+  fRender();
 }
 
 /* Called once a second from tick() */
@@ -934,14 +943,16 @@ function meetLink(e){
 
 /* Load Google's sign-in script (once, even if asked for several times) */
 let gsiQueue = null;
+let gsiError = null;
 function loadGsi(cb){
+  if(gsiError) return cb(gsiError);                      // previous load failed
   if(window.google && google.accounts) return cb();      // already loaded: run straight away
   if(gsiQueue){ gsiQueue.push(cb); return; }             // loading right now: wait for it
   gsiQueue = [cb];
   const sc = document.createElement('script');
   sc.src = 'https://accounts.google.com/gsi/client';
   sc.onload = () => { const q = gsiQueue; gsiQueue = null; q.forEach(f => f()); };
-  sc.onerror = () => { gDone(); gsiQueue = null; gErr = "can't load Google's sign-in script (offline or blocked?)"; gState = 'error'; calUI(); };
+  sc.onerror = () => { gDone(); const q = gsiQueue; gsiQueue = null; gsiError = new Error("can't load Google's sign-in script"); q.forEach(f => f(gsiError)); gErr = gsiError.message; gState = 'error'; calUI(); };
   document.head.append(sc);
 }
 /* Set up Google's token helper (only once) */
@@ -968,7 +979,7 @@ function calConnect(){
   if(!(window.google && google.accounts && google.accounts.oauth2)){
     gMsg = 'Loading Google sign-in. When it is ready, click Connect again.';
     calUI();
-    loadGsi(() => { initGcalClient(); gMsg = 'Google sign-in is ready. Click Connect Google Calendar again.'; calUI(); });
+    loadGsi(err => { if(err) return; initGcalClient(); gMsg = 'Google sign-in is ready. Click Connect Google Calendar again.'; calUI(); });
     return;
   }
   initGcalClient();
@@ -994,7 +1005,7 @@ function calDisconnect(){
 
 /* Small helper: call the Calendar/Tasks API with our token */
 async function gGet(url){
-  const r = await fetch(url, {headers: {Authorization: 'Bearer ' + gTok}});
+  const r = await fetchTimeout(url, {headers: {Authorization: 'Bearer ' + gTok}});
   if(r.status === 401){ gTok = null; throw new Error('expired'); }
   if(!r.ok){
     let detail = '';
@@ -1022,21 +1033,23 @@ async function refreshCal(){
     const to = new Date(from); to.setDate(to.getDate() + 2);          // start of today to end of tomorrow
     const q = 'singleEvents=true&orderBy=startTime&maxResults=100&timeMin=' + encodeURIComponent(from.toISOString())
             + '&timeMax=' + encodeURIComponent(to.toISOString());
+    let okCalendars = 0;
     const lists = await Promise.all(cals.map(c =>
       gGet('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(c.id) + '/events?' + q)
-        .then(j => (j.items || [])
+        .then(j => { okCalendars++; return (j.items || [])
           .filter(e => e.status !== 'cancelled' && !(e.attendees || []).some(a => a.self && a.responseStatus === 'declined'))
           .map(e => ({
             title: e.summary || '(no title)',
             allDay: !!e.start.date,
-            start: new Date(e.start.dateTime || e.start.date + 'T00:00:00'),   // date-only = all-day, local midnight
+            start: new Date(e.start.dateTime || e.start.date + 'T00:00:00'),
             end: new Date(e.end.dateTime || e.end.date + 'T00:00:00'),
             color: c.backgroundColor,
             location: e.location || '',
             meet: meetLink(e)
-          })))
+          })); })
         .catch(() => [])));                                              // one broken calendar doesn't break the rest
     gEvents = lists.flat().sort((a, b) => a.start - b.start);
+    if(cals.length > 0 && okCalendars === 0) throw new Error('All selected calendars failed to load');
     /* Google Tasks: only tasks with a due date can be placed on a day */
     try{
       const tl = (await gGet('https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=20')).items || [];
@@ -1138,7 +1151,7 @@ function renderAgenda(){
         };
         const closeTip = e => {
           const to = e && e.relatedTarget;
-          if(tipPinned || to === tip || (to && tip.contains(to))) return;
+          if(tipPinned || to === tip || (to && tip.contains(to)) || to === li || (to && li.contains(to))) return;
           tipOpen = false; tip.classList.remove('show');
         };
         li.addEventListener('pointerenter', openTip);
@@ -1200,7 +1213,7 @@ $('calBtn').onclick = () => gState === 'ok' ? calDisconnect() : calConnect();
 /* Every 30 seconds: redraw (so "now" and "next" stay right) and refresh data when it's due */
 setInterval(() => { renderAgenda(); if(gWasOn && gcalReady && Date.now() >= gNext) refreshCal(); }, 30000);
 /* If you connected before, try to reconnect when the page opens */
-if(gcalReady) loadGsi(initGcalClient);   // warm up now, so a later tap can open the popup instantly
+if(gcalReady) loadGsi(err => { if(!err) initGcalClient(); });   // warm up now, so a later tap can open the popup instantly
 if(gWasOn && gcalReady){ gState = 'reconnect'; gTry = Date.now(); calConnect(); }
 calUI();
 
@@ -1309,7 +1322,7 @@ function renderWx(){
 async function refreshWx(){
   if(!wxPlace){ renderWx(); return; }
   try{
-    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + wxPlace.lat + '&longitude=' + wxPlace.lon
+    const r = await fetchTimeout('https://api.open-meteo.com/v1/forecast?latitude=' + wxPlace.lat + '&longitude=' + wxPlace.lon
       + '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto'
       + (wxUnit === 'f' ? '&temperature_unit=fahrenheit' : ''));
     if(!r.ok) throw new Error('HTTP ' + r.status);
@@ -1335,7 +1348,7 @@ async function wxSearch(){
   searchBtn.disabled = true; searchBtn.textContent = 'Searching…';
   $('wxStatus').textContent = 'Searching for “' + q + '”…';
   try{
-    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json');
+    const r = await fetchTimeout('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json');
     if(!r.ok) throw new Error('Open-Meteo geocoding returned HTTP ' + r.status);
     const j = await r.json();
     (j.results || []).forEach(pl => {
@@ -1652,7 +1665,7 @@ $('lnkAdd').onclick = addLink;
 renderLinks();
 
 /* ============ System media controller (Linux MPRIS bridge) ============ */
-const MEDIA_BRIDGE = 'http://127.0.0.1:8765';
+const MEDIA_BRIDGE = (location.protocol === 'https:' ? 'https' : 'http') + '://127.0.0.1:8765';
 let mediaState = null;
 function setMediaVisible(show){ $('mediaControls').classList.toggle('show', !!show); }
 function setMediaStatus(message){ const el = $('mediaStatus'); el.textContent = message || ''; el.classList.toggle('show', !!message); }
@@ -1677,7 +1690,7 @@ function renderMedia(state){
 }
 async function pollMedia(){
   try{
-    const r = await fetch(MEDIA_BRIDGE + '/status', {cache:'no-store'});
+    const r = await fetchTimeout(MEDIA_BRIDGE + '/status', {cache:'no-store'});
     if(!r.ok) throw new Error('bridge unavailable');
     const state = await r.json();
     setMediaStatus('');
@@ -1686,7 +1699,7 @@ async function pollMedia(){
 }
 async function mediaCommand(cmd){
   try{
-    const r = await fetch(MEDIA_BRIDGE + '/command', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})});
+    const r = await fetchTimeout(MEDIA_BRIDGE + '/command', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd})});
     if(!r.ok) throw new Error('HTTP ' + r.status);
     setMediaStatus('');
   }catch(e){ setMediaStatus('Media command failed. Check that the Desk Dock media bridge is running.'); }

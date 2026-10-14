@@ -4,19 +4,32 @@
 Requires: playerctl (apt install playerctl)
 Run:      python3 media_bridge.py
 Then open Desk Dock. The page polls this local service for the active MPRIS player.
+
+For HTTPS (required when Desk Dock is served over HTTPS), generate a self-signed cert:
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 365
+       -subj "/CN=localhost"
+Then run with: python3 media_bridge.py --cert cert.pem --key key.pem
 """
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import argparse
 import json
 import mimetypes
 import os
+import ssl
 import subprocess
 import urllib.parse
 import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HOST = "127.0.0.1"
 PORT = 8765
 ART_CACHE = {}
 MAX_ART_BYTES = 8 * 1024 * 1024
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--cert', help='Path to SSL certificate (PEM)')
+parser.add_argument('--key', help='Path to SSL private key (PEM)')
+args = parser.parse_args()
+USE_SSL = bool(args.cert and args.key)
 
 
 def run_playerctl(*args):
@@ -197,5 +210,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"Desk Dock media bridge: http://{HOST}:{PORT}")
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    scheme = "https" if USE_SSL else "http"
+    print(f"Desk Dock media bridge: {scheme}://{HOST}:{PORT}")
+    server = ThreadingHTTPServer((HOST, PORT), Handler)
+    if USE_SSL:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(args.cert, args.key)
+        server.socket = ctx.wrap_socket(server.socket, server_side=True)
+    server.serve_forever()
