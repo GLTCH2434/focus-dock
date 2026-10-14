@@ -1050,7 +1050,7 @@ async function refreshCal(){
       const tl = (await gGet('https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=20')).items || [];
       gTasks = (await Promise.all(tl.map(l =>
         gGet('https://tasks.googleapis.com/tasks/v1/lists/' + encodeURIComponent(l.id) + '/tasks?showCompleted=false&maxResults=100')
-          .then(j => (j.items || []).filter(t => t.due).map(t => ({title: t.title || '(no title)', due: t.due.slice(0, 10)})))
+          .then(j => (j.items || []).filter(t => t.due).map(t => ({title: t.title || '(no title)', due: new Date(t.due).toISOString().slice(0, 10)})))
           .catch(() => [])))).flat();
     }catch(e){ gTasks = []; }                                            // Tasks failing doesn't break the calendar
     gState = 'ok'; gErr = ''; gUpdated = new Date(); gNext = Date.now() + 5 * 60000;
